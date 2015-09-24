@@ -1,0 +1,7 @@
+** {title}: New Message **
+
+From: {input.name} ({input.email});
+Contact Number: {input.contact};
+Company Name: {input.company};
+
+{input.message.html}

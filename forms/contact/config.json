@@ -1,0 +1,64 @@
+{
+    "title": "Contact Form",
+    "fields": {
+        "name": {
+            "sanitize": "text",
+            "rules": {
+                "required": "Please enter your name."
+            }
+        },
+        "email": {
+            "sanitize": "email",
+            "rules": {
+                "required": "We need to know your email address so we can get back to you.",
+                "email": "That doesn't look like a valid email address."
+            }
+        },
+        "company": {
+            "sanitize": "text",
+            "default": "No company name",
+            "rules": {
+                "min(4)": "That's a tad short for a company name."
+            }
+        },
+        "contact": {
+            "sanitize": "text",
+            "default": "No contact number",
+            "rules": {
+                "int": "Please enter only the digits of your phone number (no spaces or other punctuation)."
+            }
+        },
+        "message": {
+            "sanitize": "entities1|textarea",
+            "textField": true,
+            "rules": {
+                "required": "Please enter your enquiry/message.",
+                "min(250)": "Please enter at least {$0} (but no more than 2000) characters.",
+                "max(2000)": "You have reached the {$0} character limit. Please shorten your message."
+            }
+        }
+    },
+    "info": {
+        "fromName": "The ABC Accounting Team",
+        "tel": "(011) 100 1234",
+        "altTel": "(011) 100 5678"
+    },
+    "emails": {
+        "recipient": {
+            "template": "recipient",
+            "to": "Local Email <local@email.local>",
+            "from": "{input.name} <{input.email}>",
+            "subject": "New Message via Contact Form"
+        },
+        "autoReply": {
+            "template": "auto-reply",
+            "to": "{input.name} <{input.email}>",
+            "from": "Local Email <local@email.local>",
+            "subject": "Enquiry/Message Submitted - Thanks!"
+        }
+    },
+    "messages": {
+        "success": "<strong>Success!</strong><br>Thanks, your enquiry/message has been submitted. Please check your email.",
+        "validation": "<strong>Could not submit form</strong><br>{ucfirst:0} validation [error|errors:0] [was|were:0] found on the form, preventing it from being submitted. Please check the [error|errors:0] below (as indicated in the red [box|boxes:0]), correct the [field|fields:0] in question, and try again."
+    }
+}

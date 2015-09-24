@@ -1,0 +1,27 @@
+{
+	"name": "alexgarrett/violin",
+	"type": "library",
+	"description": "Violin is an easy to use, highly customisable PHP validator.",
+	"keywords": ["validation"],
+	"homepage": "https://github.com/alexgarrett/violin",
+	"license": "MIT",
+	"authors": [
+		{
+			"name": "Alex Garrett",
+			"email": "alex@codecourse.com",
+			"homepage": "http://itsmealex.com"
+		}
+	],
+	"require": {
+		"php": ">=5.4"
+	},
+	"require-dev": {
+		"squizlabs/php_codesniffer": "2.1.*",
+		"phpunit/phpunit": "~4.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"Violin\\": "src/"
+		}
+	}
+}

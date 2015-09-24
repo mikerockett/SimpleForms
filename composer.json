@@ -1,0 +1,9 @@
+{
+	"config": {
+        "vendor-dir": "packages"
+    },
+    "require": {
+        "nicmart/string-template": "^0.1.0",
+		"alexgarrett/violin": "^2.2"
+    }
+}

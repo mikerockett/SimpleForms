@@ -1,0 +1,22 @@
+Dear {input.name}
+
+** Your message has been processed. **
+
+This communication serves to confirm that our website has processed your message. We should receive it shortly, and will get back to you as soon as we can (usually within two working days).
+
+Please do not reply to this email directly - responses to it will not be received. If you need to get hold of us urgently, please call us on {info.tel} or {info.altTel}.
+
+For your reference, your details and message appear below.
+
+Kind Regards,
+{info.fromName}
+
+------------------------------------------------------------
+
+Your Details and Message:
+
+Email Address: {input.email};
+Contact Number: {input.contact};
+Company Name: {input.company};
+
+{input.message.plain}
