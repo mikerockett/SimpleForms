@@ -131,7 +131,7 @@ class SimpleForms extends WireData implements Module
     {
         // Check for 'forms' directory.
         if (!is_dir($this->formsPath)) {
-            $this->respond(['error', '[forms] directory missing...'], 500);
+            $this->respond(['error' => '[forms] directory missing...'], 500);
         }
 
         // If it exists, iterate over it, assigning accepted forms.
@@ -144,18 +144,18 @@ class SimpleForms extends WireData implements Module
 
         // Stop if there are no definitions.
         if (empty($forms)) {
-            $this->respond(['error', 'There are no forms to work with.'], 500);
+            $this->respond(['error' => 'There are no forms to work with.'], 500);
         }
 
         // Loop through each defined form and setup configuration.
         foreach ($forms as $form) {
             $configFilename = truePath("{$this->formsPath}/{$form}/config.json");
             if (!is_file($configFilename)) {
-                $this->respond(['error', "[{$form}] has no config.json file."], 500);
+                $this->respond(['error' => "[{$form}] has no config.json file."], 500);
             }
             $config = json_decode(file_get_contents($configFilename));
             if (is_null($config)) {
-                $this->respond(['error', "JSON config for [{$form}] appears to be invalid. Please check syntax."], 500);
+                $this->respond(['error' => "JSON config for [{$form}] appears to be invalid. Please check syntax."], 500);
             }
             $this->forms = new stdClass;
             $this->forms->{$form} = $config;
@@ -163,7 +163,7 @@ class SimpleForms extends WireData implements Module
 
         // Stop if the elected form was not defined.
         if (!isset($this->forms->{$this->electedFormName})) {
-            $this->respond(['error', "[{$this->electedFormName}] has not been defined."], 500);
+            $this->respond(['error' => "[{$this->electedFormName}] has not been defined."], 500);
         }
 
         $this->form = $this->forms->{$this->electedFormName};
@@ -178,7 +178,7 @@ class SimpleForms extends WireData implements Module
             count($this->form->emails) > 0
         );
         if (!$configValid) {
-            $this->respond(['error', "[{$this->electedFormName}] config does not meet the minimum requirements."], 500);
+            $this->respond(['error' => "[{$this->electedFormName}] config does not meet the minimum requirements."], 500);
         }
     }
 
