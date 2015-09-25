@@ -138,7 +138,7 @@
      * @return int
      */
     var objectLength = function(obj) {
-    	// Modern method.
+        // Modern method.
         if (Object.keys) {
             return Object.keys(obj).length;
         }
@@ -165,13 +165,28 @@
         // Set the default configuration.
         var defaultConfiguration = {
             interimButtonText: 'Just a moment...',
+            logErrors: true,
+            processingClass: 'processing',
+            scroll: {
+                enabled: true,
+                offset: 0,
+                duration: 500,
+                easing: 'swing',
+            },
             serverErrorAlert: 'Something went wrong on the server, and so this form could not be submitted. The form has been left as-is so that you may leave it open and try again in a few minutes.',
-            scrollTime: 500,
-            onSubmitStart: function() {},
-            onSubmitEnd: function() {},
-            onServerError: null,
+            events: {
+
+                // Supplementary methods
+                submitStart: function(form) {},
+                submitEnd: function(form) {},
+
+                // Override methods
+                success: null, // function(form, message)
+                failure: null, // function(form, errors, message)
+                serverError: null, // function(message)
+            }
         }
-        var configuration = $.extend(defaultConfiguration, userConfiguration);
+        var configuration = $.extend(true, defaultConfiguration, userConfiguration);
 
         $('input[type=submit]', this).val(function() {
             return $(this).data('value');
@@ -203,21 +218,37 @@
 
             // Set before and after methods
             var submitStart = function() {
+
+                // Add processingClass to form
+                _this.addClass(configuration.processingClass);
+
                 // Disable the form.
                 formState(0);
+
+                // Change button text
                 $('input[type=submit]').val(configuration.interimButtonText);
-                if ($.isFunction(configuration.onSubmitStart)) {
-                    configuration.onSubmitStart();
+
+                // Call user function
+                if ($.isFunction(configuration.events.submitStart)) {
+                    configuration.events.submitStart(_this);
                 }
             }
             var submitEnd = function() {
+
+                // Remove processingClass from form
+                _this.removeClass(configuration.processingClass);
+
                 // Enable the form.
                 formState(1);
+
+                // Restore button text
                 $('input[type=submit]', _this).val(function() {
                     return $(this).data('value');
                 });
-                if ($.isFunction(configuration.onSubmitEnd)) {
-                    configuration.onSubmitEnd();
+
+                // Call user function
+                if ($.isFunction(configuration.events.submitEnd)) {
+                    configuration.events.submitEnd(_this);
                 }
             }
 
@@ -225,22 +256,27 @@
             submitStart();
 
             // AJAXify!
-            $.ajax({
+            $.ajax(_this.attr('action'), {
                 async: true,
                 data: serialisedData,
                 dataType: 'json',
-                global: false,
                 type: 'post',
                 method: 'post',
-                url: _this.attr('action'),
                 statusCode: {
 
                     // Internal Server Error
-                    500: function() {
-                        // Upon a server error, call the specified user method,
+                    500: function(response) {
+
+                        // Parse the responseText
+                        var responseData = $.parseJSON(response.responseText);
+
+                        // Log server error and then call the specified user method
                         // or fallback to default alert (string is configurable).
-                        if ($.isFunction(configuration.onServerError)) {
-                            configuration.onServerError();
+                        if (configuration.logErrors === true) {
+                            console.log(responseData.error);
+                        }
+                        if ($.isFunction(configuration.events.serverError)) {
+                            configuration.events.serverError(responseData.error);
                         } else {
                             alert(configuration.serverErrorAlert);
                         }
@@ -260,20 +296,26 @@
                         var errorCountWords = toWords(errorCount);
                         var errorNotification = plate(responseData.error, errorCountWords, errorCount);
 
-                        // Remove any existing errors.
-                        $(dataSelector('formerror'), _this).hide().html(errorNotification).show();
-                        $(dataSelector('fielderror'), _this).hide();
-                        $(':input', _this).removeAttr(dataSelector('fieldhaserror', false));
+                        // Call user method or fallback to default.
+                        if ($.isFunction(configuration.events.failure)) {
+                            configuration.events.failure(_this, errors, errorNotification);
+                        } else {
 
-                        // Now display the validation errors to the user.
-                        $.each(errors, function(inputObject, message) {
-                            if (message instanceof Array) {
-                                console.log(message[0]);
-                            }
-                            var _inputObject = plate('[name={0}]', inputObject);
-                            $(_inputObject, _this).attr(dataSelector('fieldhaserror', false), '');
-                            $(plate('[{0}={1}]', dataSelector('fielderror', false), inputObject), _this).html(message).show();
-                        });
+                            // Remove any existing errors.
+                            $(dataSelector('formerror'), _this).hide().html(errorNotification).show();
+                            $(dataSelector('fielderror'), _this).hide();
+                            $(':input', _this).removeAttr(dataSelector('fieldhaserror', false));
+
+                            // Now display the validation errors to the user.
+                            $.each(errors, function(inputObject, message) {
+                                if (message instanceof Array) {
+                                    console.log(message[0]);
+                                }
+                                var _inputObject = plate('[name={0}]', inputObject);
+                                $(_inputObject, _this).attr(dataSelector('fieldhaserror', false), '');
+                                $(plate('[{0}={1}]', dataSelector('fielderror', false), inputObject), _this).html(message).show();
+                            });
+                        }
 
                         // Focus on the first error field
                         var firstKey = function() {
@@ -282,15 +324,30 @@
                             }
                         }
                         $(plate('[name={0}]', firstKey()), _this).focus();
+                    },
 
+                    // OK
+                    200: function(response) {
+
+                        // Call user event or fallback to default message.
+                        if ($.isFunction(configuration.events.success)) {
+                            configuration.events.success(_this, response.success);
+                        } else {
+                            _this.html(plate('<div data-simpleforms-success class="sfSuccessMessage">{0}</div>', response.success));
+                        }
                     }
                 },
             }).always(function() {
 
                 // Scroll to top of form.
-                $('html, body').animate({
-                    scrollTop: _this.offset().top
-                }, configuration.scrollTime);
+                if (configuration.scroll.enabled) {
+                    $('html, body').animate({
+                        scrollTop: _this.offset().top - configuration.scroll.offset,
+                    }, {
+                        duration: configuration.scroll.duration,
+                        easing: configuration.scroll.easing,
+                    });
+                }
 
                 // Enable the form and perform any callbacks.
                 submitEnd();
@@ -313,7 +370,7 @@
      * Even better.
      */
     window.simpleForms = function(configuration) {
-        $(allSimpleForms()).prepareSimpleForms();
+        $(allSimpleForms()).prepareSimpleForms(configuration);
     }
 
 })(jQuery, window);
