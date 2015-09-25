@@ -6,14 +6,14 @@ For more information, see this forum thread: https://processwire.com/talk/topic/
 
 ### TODO
 
-- [ ] Auto-prepend existing stylesheet to HTML template - need not rely on template var {stylesheet}.
+- [ ] Auto-prepend existing stylesheet to HTML template - need not rely on template var `{stylesheet}`.
 - [ ] Form attachments.
 - [ ] Make AJAX optional, using standard form submission protocols.
 - [ ] Make module configurable - allow for default form-recipient and noreply/auto-response sender.
-- [ ] Simple form builder, based on JSON specifications.
+- [ ] Simple form builder, based on JSON specifications (include support for Bootstrap, Foundation, and ProcessWire InputFields).
 - [ ] Template attachments (inline data or attachment reference - perhaps we should rely on SwiftMailer for this?).
-- [ ] Translate all the things!
 - [ ] Use reply link builder (for cases where emails may not be sent from sender - usually the case with SMTP).
+- [ ] Translate all the things!
 
 ### License
 
