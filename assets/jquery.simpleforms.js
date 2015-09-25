@@ -188,6 +188,20 @@
         }
         var configuration = $.extend(true, defaultConfiguration, userConfiguration);
 
+        // Check any formatter.js implementations from config.
+        if (configuration.inputFormats && $.fn.formatter) {
+            var form = this;
+            $.each(configuration.inputFormats, function(input, arg) {
+                if ($.type(arg) === "string") {
+                    var arg = {
+                        pattern: arg,
+                    }
+                }
+                $(plate('[name={0}]', input), form).formatter(arg);
+            })
+        }
+
+        // Initialise the submit button text.
         $('input[type=submit]', this).val(function() {
             return $(this).data('value');
         });

@@ -411,11 +411,20 @@ class SimpleForms extends WireData implements Module
         ]);
     }
 
-    public function script($min = true, $cacheBust = true)
+    /**
+     * Get script file path.
+     * @param  string  $name      defaults to 'simpleforms' for main plugin
+     * @param  boolean $jquery    define if this file has 'jquery.' as a prefix
+     * @param  boolean $min       define if this file is minified
+     * @param  boolean $cacheBust cache buster (adds unix timestamp to filename)
+     * @return string             resulting file name
+     */
+    public function script($name = 'simpleforms', $jquery = true, $min = true, $cacheBust = false)
     {
-        $now = ($cacheBust) ? time() : '';
+        $jquery = ($jquery === true) ? 'jquery.' : '';
+        $now = ($cacheBust) ? '?' . time() : '';
         $min = ($min) ? '.min' : '';
-        return "{$this->url}/assets/jquery.simpleforms{$min}.js?{$now}";
+        return "{$this->url}/assets/{$jquery}{$name}{$min}.js{$now}";
     }
 
     /**
@@ -434,7 +443,7 @@ class SimpleForms extends WireData implements Module
      */
     public function csrfToken()
     {
-        return '<input type="hidden" name="'.$this->input->tokenName.'" value="'.$this->input->tokenValue.'">' . PHP_EOL;
+        return '<input type="hidden" name="' . $this->input->tokenName . '" value="' . $this->input->tokenValue . '">' . PHP_EOL;
     }
 
     /**
