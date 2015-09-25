@@ -10,15 +10,6 @@
  * Licence: MIT License - http://mit-license.org/
  */
 
-/* @todo Auto-prepend existing stylesheet to HTML template - need not rely on template var {stylesheet}.
- * @todo Template attachments (inline data or attachment reference - perhaps we should rely on SwiftMailer for this?).
- * @todo Use reply link builder (for cases where emails may not be sent from sender - usually the case with SMTP).
- * @todo Translate all the things!
- * @todo Make module configurable - allow for default form-recipient and noreply/auto-response sender.
- * @todo Simple form builder, based on JSON specifications.
- * @todo Make AJAX optional, using standard form submission protocols.
- */
-
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'helpers.php';
 
 /**
