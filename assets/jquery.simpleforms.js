@@ -188,18 +188,25 @@
         }
         var configuration = $.extend(true, defaultConfiguration, userConfiguration);
 
-        // Check any formatter.js implementations from config.
-        if (configuration.inputFormats && $.fn.formatter) {
-            var form = this;
-            $.each(configuration.inputFormats, function(input, arg) {
-                if ($.type(arg) === "string") {
-                    var arg = {
-                        pattern: arg,
+        // Get the form object, for use in methods
+        var form = this;
+
+        // Check any inputmask/formatter.js implementations from config.
+        $.each(['inputmask|mask', 'formatter|pattern'], function(index, opts) {
+            var opts = opts.split("|");
+            var plugin = opts[0];
+            var matcher = opts[1];
+            if (configuration[plugin] && $.fn[plugin]) {
+                $.each(configuration[plugin], function(input, args) {
+                    if ($.type(args) === "string") {
+                        var str = args;
+                        var args = {};
+                        args[matcher] = str;
                     }
-                }
-                $(plate('[name={0}]', input), form).formatter(arg);
-            })
-        }
+                    $(plate('[name={0}]', input), form)[plugin](args);
+                })
+            }
+        });
 
         // Initialise the submit button text.
         $('input[type=submit]', this).val(function() {
@@ -213,13 +220,12 @@
             event.preventDefault();
 
             // Register vars specific to this form.
-            var _this = $(this);
-            var serialisedData = _this.sf_serialiseObject();
+            var serialisedData = form.sf_serialiseObject();
 
             // Set the formState method, which enables and disables
             // the form, as required.
             var formState = function(state) {
-                var formElements = $(':input', _this);
+                var formElements = $(':input', form);
                 switch (state) {
                     case 0:
                         formElements.prop('disabled', true);
@@ -234,35 +240,35 @@
             var submitStart = function() {
 
                 // Add processingClass to form
-                _this.addClass(configuration.processingClass);
+                form.addClass(configuration.processingClass);
 
                 // Disable the form.
                 formState(0);
 
                 // Change button text
-                $('input[type=submit]').val(configuration.interimButtonText);
+                $('input[type=submit]', form).val(configuration.interimButtonText);
 
                 // Call user function
                 if ($.isFunction(configuration.events.submitStart)) {
-                    configuration.events.submitStart(_this);
+                    configuration.events.submitStart(form);
                 }
             }
             var submitEnd = function() {
 
                 // Remove processingClass from form
-                _this.removeClass(configuration.processingClass);
+                form.removeClass(configuration.processingClass);
 
                 // Enable the form.
                 formState(1);
 
                 // Restore button text
-                $('input[type=submit]', _this).val(function() {
+                $('input[type=submit]', form).val(function() {
                     return $(this).data('value');
                 });
 
                 // Call user function
                 if ($.isFunction(configuration.events.submitEnd)) {
-                    configuration.events.submitEnd(_this);
+                    configuration.events.submitEnd(form);
                 }
             }
 
@@ -270,7 +276,7 @@
             submitStart();
 
             // AJAXify!
-            $.ajax(_this.attr('action'), {
+            $.ajax(form.attr('action'), {
                 async: true,
                 data: serialisedData,
                 dataType: 'json',
@@ -312,13 +318,13 @@
 
                         // Call user method or fallback to default.
                         if ($.isFunction(configuration.events.failure)) {
-                            configuration.events.failure(_this, errors, errorNotification);
+                            configuration.events.failure(form, errors, errorNotification);
                         } else {
 
                             // Remove any existing errors.
-                            $(dataSelector('formerror'), _this).hide().html(errorNotification).show();
-                            $(dataSelector('fielderror'), _this).hide();
-                            $(':input', _this).removeAttr(dataSelector('fieldhaserror', false));
+                            $(dataSelector('formerror'), form).hide().html(errorNotification).show();
+                            $(dataSelector('fielderror'), form).hide();
+                            $(':input', form).removeAttr(dataSelector('fieldhaserror', false));
 
                             // Now display the validation errors to the user.
                             $.each(errors, function(inputObject, message) {
@@ -326,8 +332,8 @@
                                     console.log(message[0]);
                                 }
                                 var _inputObject = plate('[name={0}]', inputObject);
-                                $(_inputObject, _this).attr(dataSelector('fieldhaserror', false), '');
-                                $(plate('[{0}={1}]', dataSelector('fielderror', false), inputObject), _this).html(message).show();
+                                $(_inputObject, form).attr(dataSelector('fieldhaserror', false), '');
+                                $(plate('[{0}={1}]', dataSelector('fielderror', false), inputObject), form).html(message).show();
                             });
                         }
 
@@ -337,7 +343,7 @@
                                 return props;
                             }
                         }
-                        $(plate('[name={0}]', firstKey()), _this).focus();
+                        $(plate('[name={0}]', firstKey()), form).focus();
                     },
 
                     // OK
@@ -345,9 +351,9 @@
 
                         // Call user event or fallback to default message.
                         if ($.isFunction(configuration.events.success)) {
-                            configuration.events.success(_this, response.success);
+                            configuration.events.success(form, response.success);
                         } else {
-                            _this.html(plate('<div data-simpleforms-success class="sfSuccessMessage">{0}</div>', response.success));
+                            form.html(plate('<div data-simpleforms-success class="sfSuccessMessage">{0}</div>', response.success));
                         }
                     }
                 },
@@ -355,8 +361,8 @@
 
                 // Scroll to top of form.
                 if (configuration.scroll.enabled) {
-                    $('html, body').animate({
-                        scrollTop: _this.offset().top - configuration.scroll.offset,
+                    $('html,body').animate({
+                        scrollTop: form.offset().top - configuration.scroll.offset,
                     }, {
                         duration: configuration.scroll.duration,
                         easing: configuration.scroll.easing,
