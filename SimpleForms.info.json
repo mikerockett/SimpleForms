@@ -2,7 +2,7 @@
     "title": "Simple Forms",
     "summary": "A simple form processor. Uses AJAX, configurable with JSON. Front-end is up to you.",
     "href": "http://www.foundrybusiness.co.za",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "permanent": false,
     "autoload": true,
     "singular": true
