@@ -20,11 +20,11 @@
 
         // Loop through each argument, checking for replacements.
         for (var i = 0; i < arguments.length - 1; i++) {
-            var formatter = new RegExp("\\{(" + ucfirstMethod + "\:)?" + i + "\\}", "gm");
-            var pluralise = new RegExp("\\[([a-z]+)\\|([a-z]+):(" + i + ")\\]", "gmi");
+            var formatter = new RegExp("\\{(" + ucfirstMethod + "\:)?" + i + "\\}", "igm");
+            var pluralise = new RegExp("\\[([a-z]+)\\|([a-z]+):(" + i + ")\\]", "igm");
             var argument = arguments[i + 1];
 
-            // Detech ucfirst as toWords() always returns lowercase.
+            // Detect ucfirst as toWords() always returns lowercase.
             if (input.match(formatter) && input.match(formatter)[0].indexOf(ucfirstMethod) >= 0) {
                 argument = argument.charAt(0).toUpperCase() + argument.slice(1);
             }

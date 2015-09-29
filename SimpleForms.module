@@ -60,33 +60,22 @@ class SimpleForms extends WireData implements Module
     protected $formActionPrefix = 'module/simple-forms';
 
     /**
-     * Determine if a request is valid.
-     * Valid requests are AJAX POSTs to module/simple-forms/<existing-form>.
-     * @return bool
+     * HTTP Referrer
+     * @var string
      */
-    protected function validRequest()
-    {
-        // AJAX-check
-        if (!$this->config->ajax) {
-            return false;
-        }
+    protected $httpReferrer = '';
 
-        // Route/Form-check
-        $routeExpression = '%' . preg_quote($this->formActionPrefix) . '/([a-z-_]+)/?%';
-        $route = trim((isset($_GET['it'])) ? $_GET['it'] : $_SERVER['REQUEST_URI'], '/');
-        if (!preg_match($routeExpression, $route)) {
-            return false;
-        } else {
-            $this->electedFormName = $this->sanitizer->varName(preg_replace($routeExpression, "\\1", $route));
-        }
+    /**
+     * Response (noAJAX)
+     * @var string
+     */
+    public $response = '';
 
-        // POST-check
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return false;
-        }
-
-        return true;
-    }
+    /**
+     * Form was successfully processed.
+     * @var bool
+     */
+    public $successful = false;
 
     /**
      * Initialise the module:
@@ -112,6 +101,61 @@ class SimpleForms extends WireData implements Module
             $this->prepare();
             $this->addHookBefore("ProcessPageView::pageNotFound", $this, "processForm");
         }
+    }
+
+    /**
+     * Determine if a request is valid.
+     * Valid requests are AJAX POSTs to module/simple-forms/<existing-form>.
+     * @return bool
+     */
+    protected function validRequest()
+    {
+        // AJAX-check
+        if (!$this->config->ajax) {
+            // If a response is saved in the session (that is, AJAX is not being used),
+            // then we're not processing a form. We can simply pass this data (manipulated
+            // the same way the front-end plugin does it) to $simpleForms along with the input,
+            // clear the variables from the session, and return false for this request.
+            //
+            // This is simply a way to flash data upon redirect as the functionality is
+            // not yet present in ProcessWire.
+            if ($this->session->response) {
+                // Pass input to $simpleForms for template processing.
+                if (isset($this->session->response->success)) {
+                    $this->successful = true;
+                }
+                $this->oldData = $this->session->oldData;
+                $this->session->remove('oldData');
+                $this->response = $this->session->response;
+                $this->session->remove('response');
+                if (isset($this->response->error) && isset($this->response->errors)) {
+                    $count = count((array) $this->response->errors);
+                    $this->response->error = plate(
+                        $this->response->error,
+                        toWords($count),
+                        $count
+                    );
+                }
+            }
+            // Otherwise, store the referrer - we'll need this for redirection purposes.
+            $this->httpReferrer = $_SERVER['HTTP_REFERER'];
+        }
+
+        // Route/Form-check
+        $routeExpression = '%' . preg_quote($this->formActionPrefix) . '/([a-z-_]+)/?%';
+        $route = trim((isset($_GET['it'])) ? $_GET['it'] : $_SERVER['REQUEST_URI'], '/');
+        if (!preg_match($routeExpression, $route)) {
+            return false;
+        } else {
+            $this->electedFormName = $this->sanitizer->varName(preg_replace($routeExpression, "\\1", $route));
+        }
+
+        // POST-check
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -179,11 +223,26 @@ class SimpleForms extends WireData implements Module
      */
     protected function respond($data, $responseCode = 200)
     {
-        http_response_code($responseCode);
-        header('Content-Type: application/json');
-        header('Cache-Control: no-cache');
-        print json_encode($data);
-        exit;
+        // If using AJAX, send a JSON response. Otherwise, flash the response to
+        // the session for template output.
+        if ($this->config->ajax) {
+            http_response_code($responseCode);
+            header('Content-Type: application/json');
+            header('Cache-Control: no-cache');
+            print json_encode($data);
+            exit;
+        } else {
+            http_response_code($responseCode);
+            $this->session->response = json_decode(json_encode($data)); // Quick array>object conversion
+            $oldData = new stdClass;
+            foreach ($this->input->post as $name => $value) {
+                if (stripos($name, 'TOKEN') !== 0) {
+                    $oldData->$name = $value;
+                }
+            }
+            $this->session->oldData = $oldData;
+            $this->session->redirect($this->httpReferrer, false);
+        }
     }
 
     /**
