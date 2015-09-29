@@ -2,13 +2,15 @@
 
 This module is under heavy development, and **should not** be used in production environments.
 
+**Current Alpha:** 0.5.0
+
 For more information, see this forum thread: https://processwire.com/talk/topic/10929-developer-centric-form-processor
 
 ### TODO
 
 - [ ] Auto-prepend existing stylesheet to HTML template - need not rely on template var `{stylesheet}`.
 - [ ] Form attachments.
-- [ ] Make AJAX optional, using standard form submission protocols.
+- [x] Make AJAX optional, using standard form submission protocols. (Majority done.)
 - [ ] Make module configurable - allow for default form-recipient and noreply/auto-response sender.
 - [ ] Simple form builder, based on JSON specifications (include support for Bootstrap, Foundation, and ProcessWire InputFields).
 - [ ] Template attachments (inline data or attachment reference - perhaps we should rely on SwiftMailer for this?).
