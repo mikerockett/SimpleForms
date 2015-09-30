@@ -1,7 +1,7 @@
 {
     "title": "Simple Forms",
     "summary": "A simple form processor. Uses AJAX, configurable with JSON. Front-end is up to you.",
-    "href": "http://www.foundrybusiness.co.za",
+    "href": "https://processwire.com/talk/topic/10929-developer-centric-form-processor",
     "version": "0.5.0",
     "permanent": false,
     "autoload": true,
