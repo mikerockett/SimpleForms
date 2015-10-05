@@ -171,6 +171,7 @@ class SimpleForms extends WireData implements Module
 
         // If it exists, iterate over it, assigning accepted forms.
         $directory = new DirectoryIterator($this->formsPath);
+        $forms = [];
         foreach ($directory as $info) {
             if ($info->isDir() && !$info->isDot()) {
                 $forms[] = $info->getFilename();
@@ -183,6 +184,7 @@ class SimpleForms extends WireData implements Module
         }
 
         // Loop through each defined form and setup configuration.
+        $this->forms = new stdClass;
         foreach ($forms as $form) {
             $configFilename = truePath("{$this->formsPath}/{$form}/config.json");
             if (!is_file($configFilename)) {
@@ -192,7 +194,6 @@ class SimpleForms extends WireData implements Module
             if (is_null($config)) {
                 $this->respond(['error' => "JSON config for [{$form}] appears to be invalid. Please check syntax."], 500);
             }
-            $this->forms = new stdClass;
             $this->forms->{$form} = $config;
         }
 
@@ -201,8 +202,10 @@ class SimpleForms extends WireData implements Module
             $this->respond(['error' => "[{$this->electedFormName}] has not been defined."], 500);
         }
 
+        // Assign the form
         $this->form = $this->forms->{$this->electedFormName};
         $this->form->name = $this->electedFormName;
+        unset($this->forms);
 
         // Validate the configuration object.
         $configValid = (
@@ -246,6 +249,16 @@ class SimpleForms extends WireData implements Module
     }
 
     /**
+     * Create a unique identifier (for file uploads)
+     * @return string
+     */
+    protected function uid()
+    {
+        mt_srand((double) microtime() * 10000);
+        return strtolower(md5(uniqid(rand(), true)));
+    }
+
+    /**
      * Process the applicable form.
      * @return string JSON-encoded
      */
@@ -262,11 +275,82 @@ class SimpleForms extends WireData implements Module
         require_once truePath(__DIR__ . '/packages/autoload.php');
         $validator = new Violin\Violin();
 
-        $formInput = [];
+        // Initialise arrays.
         $acceptedFields = [];
+        $data = [];
+        $fileErrors = [];
+        $formInput = [];
+
+        // Before preparing basic user input, upload and validate files.
+        if (isset($this->form->files)) {
+            foreach ($this->form->files as $field => $fieldData) {
+
+                // Check for the existence of required config properties.
+                foreach (['validExtensions', 'maxSize'] as $requiredProperty) {
+                    if (!isset($fieldData->$requiredProperty) || empty($fieldData->$requiredProperty)) {
+                        $this->respond(['error', "File field [$field] does not have [$requiredProperty] set."], 500);
+                    }
+                }
+
+                // Validate property types
+                if (!is_array($fieldData->validExtensions)) {
+                    $this->respond(['error', "File field [$field] property [$validExtensions] is not array."], 500);
+                }
+                foreach (['maxSize'] as $intProperty) {
+                    // Keeping loop in case we allow multiple files per field in future.
+                    if (!is_int($fieldData->$intProperty) && (int) $fieldData->$intProperty < 1) {
+                        $this->respond(['error', "File field [$field] property [$intProperty] is not or does not represent an integer starting with 1."], 500);
+                    }
+                }
+
+                // Check required property.
+                if (isset($fieldData->required)) {
+                    if ((int) $_FILES[$field]['size'] == 0) {
+                        $fileErrors[$field] = $fieldData->required;
+                    }
+                }
+
+                if ($_FILES[$field]['size'] > 0) {
+                    // Do WireUpload
+                    $uid = $this->uid();
+                    $uploadPath = truePath("{$this->formsPath}/{$this->form->name}/uploads/{$uid}/");
+                    mkdir($uploadPath, 0755, true);
+                    $fieldFile = new WireUpload($field);
+                    $fieldFile
+                        ->setMaxFiles(1) // 1 for now, may allow multiple files per field in future.
+                        ->setMaxFileSize((int) $fieldData->maxSize)
+                        ->setValidExtensions($fieldData->validExtensions)
+                        ->setOverwrite(true)
+                        ->setDestinationPath($uploadPath);
+                    $uploads = $fieldFile->execute();
+
+                    // Check for WireUpload errors.
+                    if ($fieldFile->getErrors()) {
+                        // First remove the files.
+                        foreach ($uploads as $fileName) {
+                            unlink($uploadPath . $fileName);
+                        }
+
+                        // Now get the first error for the file field.
+                        $fileErrors[$field] = $fieldFile->getErrors()[0];
+
+                    } else {
+                        // Keep the file and assign it to the template data array.
+                        foreach ($uploads as $fileName) {
+                            $data['files'][] = $uploadPath . $fileName;
+                        }
+                    }
+                }
+            }
+        }
 
         // Prepare validations and messages for Violin
         foreach ($this->form->fields as $field => $fieldData) {
+
+            // Check for the existence of rules.
+            if (!isset($fieldData->rules) || empty($fieldData->rules)) {
+                $this->respond(['error', "Field [$field] has no rules."], 500);
+            }
 
             // Assign the ruleBag.
             $ruleBag = $fieldData->rules;
@@ -306,13 +390,27 @@ class SimpleForms extends WireData implements Module
         $validator->validate($validations);
 
         // If validation fails, respond with the errors.
-        if (!$validator->passes()) {
+        if (!$validator->passes() || !empty($fileErrors)) {
+
+            // Set error message.
             $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : "Invalid input. Please check, and try again.";
+
+            // Set input error messages.
             foreach ($acceptedFields as $field) {
                 if ($validator->errors()->has($field)) {
                     $errors['errors'][$field] = $validator->errors()->first($field);
                 }
             }
+
+            // Merge with any form errors.
+            $errors['errors'] = array_merge($errors['errors'], $fileErrors);
+
+            // Remove uploads.
+            foreach ($data['files'] as $fileName) {
+                unlink($fileName);
+            }
+
+            // Respond.
             $this->respond($errors, 422);
         }
 
@@ -336,8 +434,6 @@ class SimpleForms extends WireData implements Module
             }
         });
 
-        // Initialise the data array.
-        $data = [];
         if (isset($this->form->info)) {
             $data['info'] = (array) $this->form->info;
         }

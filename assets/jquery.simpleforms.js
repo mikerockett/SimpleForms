@@ -220,7 +220,7 @@
             event.preventDefault();
 
             // Register vars specific to this form.
-            var serialisedData = form.sf_serialiseObject();
+            var formData = new FormData(form[0]);
 
             // Set the formState method, which enables and disables
             // the form, as required.
@@ -278,7 +278,9 @@
             // AJAXify!
             $.ajax(form.attr('action'), {
                 async: true,
-                data: serialisedData,
+                data: formData,
+                processData: false,
+                contentType: false,
                 dataType: 'json',
                 type: 'post',
                 method: 'post',

@@ -38,6 +38,13 @@
             }
         }
     },
+    "files": {
+        "file": {
+            "required": "You need to upload a file",
+            "validExtensions": ["pdf", "docx"],
+            "maxSize": 409600
+        }
+    },
     "info": {
         "fromName": "The ABC Accounting Team",
         "tel": "(011) 100 1234",
