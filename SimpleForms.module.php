@@ -42,6 +42,12 @@ class SimpleForms extends WireData implements Module
     protected $formsPath = '';
 
     /**
+     * URL to forms.
+     * @var string
+     */
+    protected $formsUrl = '';
+
+    /**
      * Module path
      * @var string
      */
@@ -69,13 +75,19 @@ class SimpleForms extends WireData implements Module
      * Response (noAJAX)
      * @var string
      */
-    public $response = '';
+    public $response = null;
+
+    /**
+     * Previous Input (noAJAX)
+     * @var string
+     */
+    public $previousInput = null;
 
     /**
      * Form was successfully processed.
      * @var bool
      */
-    public $successful = false;
+    protected $successful = false;
 
     /**
      * Initialise the module:
@@ -91,6 +103,7 @@ class SimpleForms extends WireData implements Module
         $this->path = $this->config->paths->siteModules . __CLASS__;
         $this->url = $this->config->urls->siteModules . __CLASS__;
         $this->formsPath = truePath("{$this->path}/forms");
+        $this->formsUrl = ($this->config->https) ? 'https' : 'http' . '://' . $this->config->httpHost . "{$this->url}/forms";
 
         // Set CSRF token data.
         $this->input->tokenName = $this->session->CSRF->getTokenName();
@@ -124,8 +137,8 @@ class SimpleForms extends WireData implements Module
                 if (isset($this->session->response->success)) {
                     $this->successful = true;
                 }
-                $this->oldData = $this->session->oldData;
-                $this->session->remove('oldData');
+                $this->previousInput = $this->session->previousInput;
+                $this->session->remove('previousInput');
                 $this->response = $this->session->response;
                 $this->session->remove('response');
                 if (isset($this->response->error) && isset($this->response->errors)) {
@@ -138,7 +151,10 @@ class SimpleForms extends WireData implements Module
                 }
             }
             // Otherwise, store the referrer - we'll need this for redirection purposes.
-            $this->httpReferrer = $_SERVER['HTTP_REFERER'];
+            if (isset($_SERVER['HTTP_REFERER'])) {
+                $this->httpReferrer = $_SERVER['HTTP_REFERER'];
+            }
+
         }
 
         // Route/Form-check
@@ -237,13 +253,13 @@ class SimpleForms extends WireData implements Module
         } else {
             http_response_code($responseCode);
             $this->session->response = json_decode(json_encode($data)); // Quick array>object conversion
-            $oldData = new stdClass;
+            $previousInput = new stdClass;
             foreach ($this->input->post as $name => $value) {
                 if (stripos($name, 'TOKEN') !== 0) {
-                    $oldData->$name = $value;
+                    $previousInput->$name = $value;
                 }
             }
-            $this->session->oldData = $oldData;
+            $this->session->previousInput = $previousInput;
             $this->session->redirect($this->httpReferrer, false);
         }
     }
@@ -313,7 +329,8 @@ class SimpleForms extends WireData implements Module
                 if ($_FILES[$field]['size'] > 0) {
                     // Do WireUpload
                     $uid = $this->uid();
-                    $uploadPath = truePath("{$this->formsPath}/{$this->form->name}/uploads/{$uid}/");
+                    $uploadPath = truePath("{$this->formsPath}/{$this->form->name}/uploads/{$uid}") . DIRECTORY_SEPARATOR;
+                    $uploadUrl = "{$this->formsUrl}/{$this->form->name}/uploads/{$uid}/";
                     mkdir($uploadPath, 0755, true);
                     $fieldFile = new WireUpload($field);
                     $fieldFile
@@ -326,9 +343,9 @@ class SimpleForms extends WireData implements Module
 
                     // Check for WireUpload errors.
                     if ($fieldFile->getErrors()) {
-                        // First remove the files.
-                        foreach ($uploads as $fileName) {
-                            unlink($uploadPath . $fileName);
+                        // Remove uploads for this request.
+                        if (is_dir($uploadPath)) {
+                            trash($uploadPath);
                         }
 
                         // Now get the first error for the file field.
@@ -337,7 +354,10 @@ class SimpleForms extends WireData implements Module
                     } else {
                         // Keep the file and assign it to the template data array.
                         foreach ($uploads as $fileName) {
-                            $data['files'][] = $uploadPath . $fileName;
+                            $data['files'][$field] = [
+                                'name' => $fileName,
+                                'url' => $uploadUrl . $fileName,
+                            ];
                         }
                     }
                 }
@@ -393,7 +413,7 @@ class SimpleForms extends WireData implements Module
         if (!$validator->passes() || !empty($fileErrors)) {
 
             // Set error message.
-            $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : "Invalid input. Please check, and try again.";
+            $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : "Invalid input. Please check and try again.";
 
             // Set input error messages.
             foreach ($acceptedFields as $field) {
@@ -405,9 +425,9 @@ class SimpleForms extends WireData implements Module
             // Merge with any form errors.
             $errors['errors'] = array_merge($errors['errors'], $fileErrors);
 
-            // Remove uploads.
-            foreach ($data['files'] as $fileName) {
-                unlink($fileName);
+            // Remove file uploads for this request.
+            if (isset($uploadPath) && is_dir($uploadPath)) {
+                trash($uploadPath);
             }
 
             // Respond.
@@ -590,6 +610,53 @@ class SimpleForms extends WireData implements Module
     public function csrfToken()
     {
         return '<input type="hidden" name="' . $this->input->tokenName . '" value="' . $this->input->tokenValue . '">' . PHP_EOL;
+    }
+
+    /**
+     * Was the submission successful (noAJAX)
+     * @return string
+     */
+    public function isSuccessful()
+    {
+        return (bool) $this->successful;
+    }
+
+    /**
+     * Get Form Success Message (noAJAX)
+     * @return string
+     */
+    public function formSuccessMessage()
+    {
+        return (isset($this->response->success)) ? $this->response->success : '';
+    }
+
+    /**
+     * Get Form Error (noAJAX)
+     * @return string
+     */
+    public function formError()
+    {
+        return (isset($this->response->error)) ? $this->response->error : '';
+    }
+
+    /**
+     * Get Field Error (noAJAX)
+     * @param  string $field
+     * @return string
+     */
+    public function fieldError($field)
+    {
+        return (isset($this->response->errors->$field)) ? $this->response->errors->$field : '';
+    }
+
+    /**
+     * Get Previous Input (noAJAX)
+     * @param  string $field
+     * @return string
+     */
+    public function previousInput($field)
+    {
+        return (isset($this->previousInput->$field)) ? $this->previousInput->$field : '';
     }
 
     /**

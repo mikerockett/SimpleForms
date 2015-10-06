@@ -185,7 +185,7 @@ function plate()
     $ucfirstMethod = 'ucfirst';
 
     // Loop through each argument, checking for replacements.
-    for ($i = 0; $i < func_num_args(); $i++) {
+    for ($i = 0; $i < func_num_args() - 1; $i++) {
         $formatter = "%\\{($ucfirstMethod\\:)?$i\\}%im";
         $pluralise = "%\\[([a-z]+)\\|([a-z]+):($i)\\]%im";
         $arg = $args[$i + 1];
@@ -210,4 +210,29 @@ function plate()
     }
 
     return $input;
+}
+
+/**
+ * Trash directory and contents
+ * @see    http://php.net/manual/en/function.rmdir.php#110489
+ * @param  string $dir
+ * @return bool
+ */
+function trash($directory)
+{
+    $files = array_diff(scandir($directory), ['.', '..']);
+    foreach ($files as $file) {
+        (is_dir("{$directory}/{$file}") && !is_link($directory)) ? trash("{$directory}/{$file}") : unlink("{$directory}/{$file}");
+    }
+    return rmdir($directory);
+    // $tree = new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS);
+    // $files = new RecursiveIteratorIterator($tree, RecursiveIteratorIterator::CHILD_FIRST);
+    // foreach ($files as $file) {
+    //     if ($file->isDir()) {
+    //         rmdir($file->getRealPath());
+    //     } else {
+    //         unlink($file->getRealPath());
+    //     }
+    // }
+    // return rmdir($dir);
 }

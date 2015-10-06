@@ -42,7 +42,7 @@
         "file": {
             "required": "You need to upload a file",
             "validExtensions": ["pdf", "docx"],
-            "maxSize": 409600
+            "maxSize": 4096000
         }
     },
     "info": {
