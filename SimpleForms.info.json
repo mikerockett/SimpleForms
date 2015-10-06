@@ -2,7 +2,7 @@
     "title": "Simple Forms",
     "summary": "A simple form processor. Uses AJAX, configurable with JSON. Front-end is up to you.",
     "href": "https://processwire.com/talk/topic/10929-developer-centric-form-processor",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "permanent": false,
     "autoload": true,
     "singular": true
