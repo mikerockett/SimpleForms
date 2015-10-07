@@ -75,13 +75,13 @@ class SimpleForms extends WireData implements Module
      * Response (noAJAX)
      * @var string
      */
-    public $response = null;
+    protected $response = null;
 
     /**
      * Previous Input (noAJAX)
      * @var string
      */
-    public $previousInput = null;
+    protected $previousInput = null;
 
     /**
      * Form was successfully processed.
