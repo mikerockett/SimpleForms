@@ -1,12 +1,13 @@
 ## SimpleForms for ProcessWire
 
-This module is under heavy development, and **should not** be used in production environments.
+This module is under heavy development, and **should not** be used in production environments, specifically due to the fact that it is not designed for production at this time - module updates will replace any forms you define.
 
 **Current Alpha:** 0.7.0
 
-For more information, see this forum thread: https://processwire.com/talk/topic/10929-developer-centric-form-processor
+For more information, see this forum thread:
+**https://processwire.com/talk/topic/10929-developer-centric-form-processor**
 
-### TODO
+### Todo
 
 - [x] Form attachments (Mostly ready - need to do some more testing to confirm)
 - [x] Make AJAX optional, using standard form submission protocols (majority done)
