@@ -436,6 +436,9 @@ class SimpleForms extends WireData implements Module
             // Set error message.
             $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : $this->_('Invalid input. Please check and try again.');
 
+            // Initialise errors array
+            $errors['errors'] = [];
+
             // Set input error messages.
             foreach ($acceptedFields as $field) {
                 if ($validator->errors()->has($field)) {
@@ -538,8 +541,8 @@ class SimpleForms extends WireData implements Module
             // If an HTML template is specified and exists:
             if (isset($templates->html) && is_file($templates->html)) {
 
-                // If any multiline fields have been defined, convert them for HTML output.
-                // Note: should an HTML template be present, the field should be called as normal:
+                // If any multiline fields have been defined, send them to the data array.
+                // Note: should an HTML template not be present, the field should be called as normal:
                 //       {input.field} instead of {input.field.html} and {input.field.plain}
                 foreach ($this->form->fields as $field => $fieldData) {
                     if (isset($fieldData->textField)) {
@@ -575,10 +578,22 @@ class SimpleForms extends WireData implements Module
                         }
                     }
                 }
+
+                // Get the template contents.
+                $templateContents = file_get_contents($templates->html);
+
+                // If the main form stylesheet is found (that is, a stylesheet with the same name as the form),
+                // then prepend it to the template and remove it from the list.
+                if (isset($stylesheets[$this->form->name])) {
+                    $templateContents = $stylesheets[$this->form->name] . PHP_EOL . $templateContents;
+                    unset($stylesheets[$this->form->name]);
+                }
+
+                // Add stylsheet declarations to to data array.
                 $data['stylesheets'] = $stylesheets;
 
                 // Set the HTML body.
-                $$mailer->bodyHTML($templateEngine->render(file_get_contents($templates->html), $data));
+                $$mailer->bodyHTML($templateEngine->render($templateContents, $data));
             }
 
             // Set the plain body.
