@@ -264,7 +264,7 @@ class SimpleForms extends WireData implements Module
             $previousInput = new stdClass;
             foreach ($this->input->post as $name => $value) {
                 if (stripos($name, 'TOKEN') !== 0) {
-                    $previousInput->$name = $value;
+                    $previousInput->{$name} = $value;
                 }
             }
             $this->session->previousInput = $previousInput;
@@ -321,7 +321,7 @@ class SimpleForms extends WireData implements Module
 
                 // Check for the existence of required config properties.
                 foreach (['validExtensions', 'maxSize'] as $requiredProperty) {
-                    if (!isset($fieldData->$requiredProperty) || empty($fieldData->$requiredProperty)) {
+                    if (!isset($fieldData->{$requiredProperty}) || empty($fieldData->{$requiredProperty})) {
                         $this->respond(['error', sprintf($this->_('File field [%s] does not have [%s] set.'), $field, $requiredProperty)], 500);
                     }
                 }
@@ -332,7 +332,7 @@ class SimpleForms extends WireData implements Module
                 }
                 foreach (['maxSize'] as $intProperty) {
                     // Keeping loop in case we allow multiple files per field in future.
-                    if (!is_int($fieldData->$intProperty) && (int) $fieldData->$intProperty < 1) {
+                    if (!is_int($fieldData->{$intProperty}) && (int) $fieldData->{$intProperty} < 1) {
                         $this->respond(['error', sprintf($this->_('File field [%s] property [%s] is not or does not represent an integer starting with 1.'), $field, $intProperty)], 500);
                     }
                 }
@@ -648,7 +648,25 @@ class SimpleForms extends WireData implements Module
      */
     public function formSuccessMessage()
     {
-        return (isset($this->response->success)) ? $this->response->success : '';
+        return (isset($this->response->success)) ? $this->response->success : $this->_('Form processed successfully.');
+    }
+
+    /**
+     * Render Formatted Form Success Message (noAJAX)
+     * @return string
+     */
+    public function renderFormSuccessMessage()
+    {
+        return '<div data-sf-success>' . $this->formSuccessMessage() . '</div>';
+    }
+
+    /**
+     * Has Form Error (noAJAX)
+     * @return bool
+     */
+    public function hasFormError()
+    {
+        return (isset($this->response->error));
     }
 
     /**
@@ -657,17 +675,29 @@ class SimpleForms extends WireData implements Module
      */
     public function formError()
     {
-        return (isset($this->response->error)) ? $this->response->error : '';
+        return ($this->hasFormError()) ? $this->response->error : '';
     }
 
     /**
-     * Get Field Error (noAJAX)
+     * Render Dormatted Form Error (noAJAX)
      * @param  string $field
      * @return string
      */
+    public function renderFormError()
+    {
+        if ($this->hasFormError()) {
+            return '<div data-sf-formerror>' . $this->response->error . '</div>';
+        }
+    }
+
+    /**
+     * Has Field Error (noAJAX)
+     * @param  string $field
+     * @return bool
+     */
     public function hasError($field)
     {
-        return (isset($this->response->errors->$field));
+        return (isset($this->response->errors->{$field}));
     }
 
     /**
@@ -677,7 +707,19 @@ class SimpleForms extends WireData implements Module
      */
     public function fieldError($field)
     {
-        return ($this->hasError($field)) ? $this->response->errors->$field : '';
+        return ($this->hasError($field)) ? $this->response->errors->{$field} : '';
+    }
+
+    /**
+     * Render Dormatted Field Error (noAJAX)
+     * @param  string $field
+     * @return string
+     */
+    public function renderFieldError($field)
+    {
+        if ($this->hasError($field)) {
+            return '<div data-sf-fielderror="' . $field . '">' . $this->response->errors->{$field} . '</div>';
+        }
     }
 
     /**
@@ -687,7 +729,7 @@ class SimpleForms extends WireData implements Module
      */
     public function previousInput($field)
     {
-        return (isset($this->previousInput->$field)) ? $this->previousInput->$field : '';
+        return (isset($this->previousInput->{$field})) ? $this->previousInput->{$field} : '';
     }
 
     /**
