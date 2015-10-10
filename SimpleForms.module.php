@@ -175,6 +175,21 @@ class SimpleForms extends WireData implements Module
     }
 
     /**
+     * Validate the form configuration object.
+     * @return void
+     */
+    protected function validateConfig()
+    {
+        return (
+            isset($this->form->title) &&
+            isset($this->form->fields) &&
+            count($this->form->fields) > 0 &&
+            isset($this->form->emails) &&
+            count($this->form->emails) > 0
+        );
+    }
+
+    /**
      * Prepare all the things.
      * @return void
      */
@@ -182,7 +197,7 @@ class SimpleForms extends WireData implements Module
     {
         // Check for 'forms' directory.
         if (!is_dir($this->formsPath)) {
-            $this->respond(['error' => '[forms] directory missing...'], 500);
+            $this->respond(['error' => $this->_('[forms] directory not found.')], 500);
         }
 
         // If it exists, iterate over it, assigning accepted forms.
@@ -196,7 +211,7 @@ class SimpleForms extends WireData implements Module
 
         // Stop if there are no definitions.
         if (empty($forms)) {
-            $this->respond(['error' => 'There are no forms to work with.'], 500);
+            $this->respond(['error' => $this->_('There are no forms to work with.')], 500);
         }
 
         // Loop through each defined form and setup configuration.
@@ -204,18 +219,18 @@ class SimpleForms extends WireData implements Module
         foreach ($forms as $form) {
             $configFilename = truePath("{$this->formsPath}/{$form}/config.json");
             if (!is_file($configFilename)) {
-                $this->respond(['error' => "[{$form}] has no config.json file."], 500);
+                $this->respond(['error' => sprintf($this->_('[%s] has no config.json file.'), $form)], 500);
             }
             $config = json_decode(file_get_contents($configFilename));
             if (is_null($config)) {
-                $this->respond(['error' => "JSON config for [{$form}] appears to be invalid. Please check syntax."], 500);
+                $this->respond(['error' => sprintf($this->_('JSON config for [%s] appears to be invalid. Please check syntax.'), $form)], 500);
             }
             $this->forms->{$form} = $config;
         }
 
         // Stop if the elected form was not defined.
         if (!isset($this->forms->{$this->electedFormName})) {
-            $this->respond(['error' => "[{$this->electedFormName}] has not been defined."], 500);
+            $this->respond(['error' => sprintf($this->_('[%s] has not been defined.'), $this->electedFormName)], 500);
         }
 
         // Assign the form
@@ -224,15 +239,8 @@ class SimpleForms extends WireData implements Module
         unset($this->forms);
 
         // Validate the configuration object.
-        $configValid = (
-            isset($this->form->title) &&
-            isset($this->form->fields) &&
-            count($this->form->fields) > 0 &&
-            isset($this->form->emails) &&
-            count($this->form->emails) > 0
-        );
-        if (!$configValid) {
-            $this->respond(['error' => "[{$this->electedFormName}] config does not meet the minimum requirements."], 500);
+        if (!$this->validateConfig()) {
+            $this->respond(['error' => sprintf($this->_('[%s] config does not meet the minimum requirements.'), $this->electedFormName)], 500);
         }
     }
 
@@ -275,17 +283,27 @@ class SimpleForms extends WireData implements Module
     }
 
     /**
+     * Check for CSRF Token data
+     * WireCSRFException "Request appears to be forged."
+     * @return void
+     */
+    protected function checkCSRF()
+    {
+        try {
+            $this->session->CSRF->validate();
+        } catch (WireCSRFException $e) {
+            $this->respond(['error' => $this->_('Request appears to be forged.')], 500);
+        }
+    }
+
+    /**
      * Process the applicable form.
      * @return string JSON-encoded
      */
     protected function processForm()
     {
         // Before anything, check CSRF.
-        try {
-            $this->session->CSRF->validate();
-        } catch (WireCSRFException $e) {
-            $this->respond(['error' => 'Request appears to be forged.'], 500);
-        }
+        $this->checkCSRF();
 
         // Get and construct the validator
         require_once truePath(__DIR__ . '/packages/autoload.php');
@@ -304,18 +322,18 @@ class SimpleForms extends WireData implements Module
                 // Check for the existence of required config properties.
                 foreach (['validExtensions', 'maxSize'] as $requiredProperty) {
                     if (!isset($fieldData->$requiredProperty) || empty($fieldData->$requiredProperty)) {
-                        $this->respond(['error', "File field [$field] does not have [$requiredProperty] set."], 500);
+                        $this->respond(['error', sprintf($this->_('File field [%s] does not have [%s] set.'), $field, $requiredProperty)], 500);
                     }
                 }
 
                 // Validate property types
                 if (!is_array($fieldData->validExtensions)) {
-                    $this->respond(['error', "File field [$field] property [$validExtensions] is not array."], 500);
+                    $this->respond(['error', sprintf($this->_('File field [%s] property [%s] is not an array.'), $field, $validExtensions)], 500);
                 }
                 foreach (['maxSize'] as $intProperty) {
                     // Keeping loop in case we allow multiple files per field in future.
                     if (!is_int($fieldData->$intProperty) && (int) $fieldData->$intProperty < 1) {
-                        $this->respond(['error', "File field [$field] property [$intProperty] is not or does not represent an integer starting with 1."], 500);
+                        $this->respond(['error', sprintf($this->_('File field [%s] property [%s] is not or does not represent an integer starting with 1.'), $field, $intProperty)], 500);
                     }
                 }
 
@@ -369,7 +387,7 @@ class SimpleForms extends WireData implements Module
 
             // Check for the existence of rules.
             if (!isset($fieldData->rules) || empty($fieldData->rules)) {
-                $this->respond(['error', "Field [$field] has no rules."], 500);
+                $this->respond(['error', sprintf($this->_('Field [%s] has no rules.'), $field)], 500);
             }
 
             // Assign the ruleBag.
@@ -378,14 +396,17 @@ class SimpleForms extends WireData implements Module
             // Import the rules, as specified in the keys for the field.
             $rules = implode('|', array_keys((array) $ruleBag));
 
+            // Get POST object
+            $post = $this->input->post;
+
             // Get and sanitize the input for the field, or just set to blank if none provided.
-            $input = (isset($this->input->post->{$field})) ? $this->input->post->{$field} : '';
+            $input = (isset($post->{$field})) ? $post->{$field} : '';
             if (isset($fieldData->sanitize) && !empty($input)) {
                 foreach (explode('|', $fieldData->sanitize) as $sanitizer) {
                     $input = $this->sanitizer->{$sanitizer}($input);
                     // As $sanitizer strips invalid data, we need to put it back for the validator.
                     if (empty($input)) {
-                        $input = $this->input->post->{$field};
+                        $input = $post->{$field};
                     }
                 }
             }
@@ -413,7 +434,7 @@ class SimpleForms extends WireData implements Module
         if (!$validator->passes() || !empty($fileErrors)) {
 
             // Set error message.
-            $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : "Invalid input. Please check and try again.";
+            $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : $this->_('Invalid input. Please check and try again.');
 
             // Set input error messages.
             foreach ($acceptedFields as $field) {
@@ -436,7 +457,7 @@ class SimpleForms extends WireData implements Module
 
         // If no emails have been defined, throw an error.
         if (!isset($this->form->emails)) {
-            $this->respond(['error' => "You haven't set up the emails to send for this form."], 500);
+            $this->respond(['error' => $this->_("You haven't set up the emails to send for this form.")], 500);
         }
 
         // Set up the template engine
@@ -467,7 +488,7 @@ class SimpleForms extends WireData implements Module
 
             // Throw an error if a template hasn't been defined for the email
             if (!isset($email->template)) {
-                $this->respond(['error' => "[$emailKey] needs a template."], 500);
+                $this->respond(['error' => sprintf($this->_('[%s] needs a template.'), $emailKey)], 500);
             }
             // Otherwise, set up the template file paths
             $templateFileBase = truePath("{$this->formsPath}/{$this->form->name}/templates/{$email->template}");
@@ -479,7 +500,7 @@ class SimpleForms extends WireData implements Module
             // Should the plain template not exist, throw an error.
             // The HTML template is optional.
             if (!is_file($templates->plain)) {
-                $this->respond(['error' => "Plain template for [$emailKey] does not exist, but is required."], 500);
+                $this->respond(['error' => sprintf($this->_('Plain template for [%s] does not exist, but is required.'), $emailKey)], 500);
             }
 
             // Should the HTML template not exist, unset it from the array.
@@ -495,7 +516,7 @@ class SimpleForms extends WireData implements Module
             foreach (['to', 'from'] as $header) {
                 // If it hasn't been set, throw an error.
                 if (!isset($email->{$header})) {
-                    $this->respond(['error' => "'{$header}' not set for [$emailKey]."], 500);
+                    $this->respond(['error' => sprintf($this->_("'%s' header not set for %s."), $header, $emailKey)], 500);
                 }
 
                 // Otherwise, do any necessary replacements regarding input.
@@ -566,13 +587,13 @@ class SimpleForms extends WireData implements Module
             // Send the email.
             $result = $$mailer->send();
             if ($result === 0) {
-                $this->respond(['error' => "Could not send [$emailKey]."], 500);
+                $this->respond(['error' => sprintf($this->_('Could not send [%s] due to technical error (WireMail).'), $emailKey)], 500);
             }
             $results[] = $emailKey;
         }
 
         $this->respond([
-            'success' => isset($this->form->messages->success) ? $this->form->messages->success : "Email(s) sent.",
+            'success' => isset($this->form->messages->success) ? $this->form->messages->success : $this->_('Email(s) sent.'),
             'sent' => $results,
         ]);
     }
@@ -644,9 +665,19 @@ class SimpleForms extends WireData implements Module
      * @param  string $field
      * @return string
      */
+    public function hasError($field)
+    {
+        return (isset($this->response->errors->$field));
+    }
+
+    /**
+     * Get Field Error (noAJAX)
+     * @param  string $field
+     * @return string
+     */
     public function fieldError($field)
     {
-        return (isset($this->response->errors->$field)) ? $this->response->errors->$field : '';
+        return ($this->hasError($field)) ? $this->response->errors->$field : '';
     }
 
     /**

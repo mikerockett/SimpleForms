@@ -45,7 +45,7 @@
         if (typeof attr === "undefined" || attr === null) {
             attr = true;
         }
-        var result = 'data-simpleforms-' + name;
+        var result = 'data-sf-' + name;
         if (attr === true) {
             result = plate('[{0}]', result);
         }
@@ -355,7 +355,7 @@
                         if ($.isFunction(configuration.events.success)) {
                             configuration.events.success(form, response.success);
                         } else {
-                            form.html(plate('<div data-simpleforms-success class="sfSuccessMessage">{0}</div>', response.success));
+                            form.html(plate('<div data-sf-success class="sfSuccessMessage">{0}</div>', response.success));
                         }
                     }
                 },
@@ -384,7 +384,7 @@
      * Quite handy indeed.
      */
     window.allSimpleForms = function() {
-        return "[data-simpleforms!=''][data-simpleforms]";
+        return "[data-sf!=''][data-sf]";
     }
 
     /**
