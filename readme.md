@@ -9,13 +9,12 @@ For more information, see this forum thread: https://processwire.com/talk/topic/
 ### TODO
 
 - [x] Form attachments (Mostly ready - need to do some more testing to confirm)
-- [x] Make AJAX optional, using standard form submission protocols (Majority done)
+- [x] Make AJAX optional, using standard form submission protocols (majority done)
 - [x] Add translation support
-- [ ] Auto-prepend existing stylesheet to HTML template - need not rely on template var `{stylesheet}`
+- [x] Auto-prepend form stylesheet to HTML templates (working, but additional considerations to be made, such as being able to define which templates will not receive the stylesheet contents)
 - [ ] Make module configurable - allow for default form-recipient and noreply/auto-response sender
 - [ ] Simple form builder, based on JSON specifications (include support for Bootstrap, Foundation, and ProcessWire InputFields)
 - [ ] Template attachments - for logos or social buttons in emails
-- [ ] Use reply link builder (for cases where emails may not be sent from sender - usually the case with SMTP)
 
 ### License
 
