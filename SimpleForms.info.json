@@ -3,6 +3,9 @@
     "summary": "A simple form processor. Uses AJAX, configurable with JSON. Front-end is up to you.",
     "href": "https://processwire.com/talk/topic/10929-developer-centric-form-processor",
     "version": "0.7.0",
+    "license": "MIT",
+    "hreflicense": "http://mit-license.org/",
+    "requires": "ProcessWire>=2.6.1",
     "permanent": false,
     "autoload": true,
     "singular": true

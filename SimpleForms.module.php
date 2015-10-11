@@ -36,6 +36,12 @@ class SimpleForms extends WireData implements Module
     protected $forms;
 
     /**
+     * Name of the forms directory
+     * @var string
+     */
+    protected $formsDirectoryName = 'forms';
+
+    /**
      * Path to forms.
      * @var string
      */
@@ -90,6 +96,20 @@ class SimpleForms extends WireData implements Module
     protected $successful = false;
 
     /**
+     * Module constructor
+     */
+    public function __construct()
+    {
+        // Set the actual path to the forms directory.
+        $this->formsPath = truePath("{$this->config->paths->assets}{$this->formsDirectoryName}");
+
+        // Set the URL to the forms directory (for attachment links)
+        $scheme = ($this->config->https) ? 'https' : 'http';
+        $this->formsUrl = "{$scheme}://{$this->config->httpHost}{$this->config->urls->assets}{$this->formsDirectoryName}";
+        $this->simpleFormsUrl = "{$scheme}://{$this->config->httpHost}{$this->config->urls->siteModules}" . __CLASS__;
+    }
+
+    /**
      * Initialise the module:
      * Add hook if valid request and set tokens.
      * @return void
@@ -98,12 +118,6 @@ class SimpleForms extends WireData implements Module
     {
         // SimpleForms fuel.
         $this->wire('simpleForms', $this);
-
-        // Set paths.
-        $this->path = $this->config->paths->siteModules . __CLASS__;
-        $this->url = $this->config->urls->siteModules . __CLASS__;
-        $this->formsPath = truePath("{$this->path}/forms");
-        $this->formsUrl = ($this->config->https) ? 'https' : 'http' . '://' . $this->config->httpHost . "{$this->url}/forms";
 
         // Set CSRF token data.
         $this->input->tokenName = $this->session->CSRF->getTokenName();
@@ -626,7 +640,7 @@ class SimpleForms extends WireData implements Module
         $jquery = ($jquery === true) ? 'jquery.' : '';
         $now = ($cacheBust) ? '?' . time() : '';
         $min = ($min) ? '.min' : '';
-        return "{$this->url}/assets/{$jquery}{$name}{$min}.js{$now}";
+        return "{$this->simpleFormsUrl}/assets/{$jquery}{$name}{$min}.js{$now}";
     }
 
     /**
@@ -755,5 +769,37 @@ class SimpleForms extends WireData implements Module
     public function render($name)
     {
         // Coming soon...
+    }
+
+    /**
+     * Install the module
+     */
+    public function ___install()
+    {
+        if (!is_dir($this->formsPath)) {
+            // Create the forms directory if it does not exist.
+            mkdir($this->formsPath, 0755, true);
+
+            // Copy built in form(s) to this directory.
+            $paths = (object) [
+                // site/modules/SimpleForms/forms/*
+                'default' => $this->config->paths->siteModules . __CLASS__ . "/default-{$this->formsDirectoryName}",
+                // site/assets/forms/*
+                'actual' => $this->formsPath,
+            ];
+            $copied = (_xcopy($paths->default, $paths->actual));
+            $this->message(
+                ($copied == true)
+                    ? $this->_('SimpleForms: Default form(s) copied successfully.')
+                    : $this->_('SimpleForms: Unable to copy ddefault form(s).')
+            );
+        }
+    }
+
+    /**
+     * Uninstall the module
+     */
+    public function ___uninstall()
+    {
     }
 }
