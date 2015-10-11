@@ -250,6 +250,13 @@ class SimpleForms extends WireData implements Module
         // Assign the form
         $this->form = $this->forms->{$this->electedFormName};
         $this->form->name = $this->electedFormName;
+
+        // Enable the form is 'enabled' has not been defined.
+        if (!isset($this->form->enabled)) {
+            $this->form->enabled = true;
+        }
+
+        // We're done checking forms now - unset the object.
         unset($this->forms);
 
         // Validate the configuration object.
@@ -318,6 +325,11 @@ class SimpleForms extends WireData implements Module
     {
         // Before anything, check CSRF.
         $this->checkCSRF();
+
+        // Now, check to see if the form is enabled. If not, throw an error.
+        if ($this->form->enabled == false) {
+            $this->respond(['error', sprintf($this->_('Form [%s] is not enabled.'), $this->form->name)], 500);
+        }
 
         // Get and construct the validator
         require_once truePath(__DIR__ . '/packages/autoload.php');

@@ -18,6 +18,5 @@ Your Details and Message:
 Email Address: {input.email};
 Contact Number: {input.contact};
 Company Name: {input.company};
-Uploaded File: {files.file.name};
 
 {input.message.plain}

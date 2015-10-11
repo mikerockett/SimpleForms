@@ -1,5 +1,6 @@
 {
     "title": "Contact Form",
+    "enabled": false,
     "fields": {
         "name": {
             "sanitize": "text",
@@ -36,13 +37,6 @@
                 "min(250)": "Please enter at least {$0} (but no more than 2000) characters.",
                 "max(2000)": "You have reached the {$0} character limit. Please shorten your message."
             }
-        }
-    },
-    "files": {
-        "file": {
-            "required": "You need to upload a file",
-            "validExtensions": ["pdf", "docx"],
-            "maxSize": 4096000
         }
     },
     "info": {

@@ -4,9 +4,6 @@ From: {input.name} ({input.email});
 Contact Number: {input.contact};
 Company Name: {input.company}
 
-User Upload:
-{files.file.name}: {files.file.url} (click to view)
-
 --
 
 {input.message.html}
