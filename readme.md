@@ -14,6 +14,7 @@ For more information, see this forum thread:
 - [x] Make AJAX optional, using standard form submission protocols (majority done)
 - [x] Add translation support
 - [x] Auto-prepend form stylesheet to HTML templates (working, but additional considerations to be made, such as being able to define which templates will not receive the stylesheet contents)
+- [x] Add YAML support for form config
 - [ ] Add support for multi-language errors/success messages in config.json
 - [ ] Make module configurable - allow for default form-recipient and noreply/auto-response sender
 - [ ] Simple form builder, based on JSON specifications (include support for Bootstrap, Foundation, and ProcessWire InputFields)
