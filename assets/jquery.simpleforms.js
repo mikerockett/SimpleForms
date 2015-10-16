@@ -128,6 +128,9 @@
         // Get the form object, for use in methods
         var form = this;
 
+        // Enable "disabled" persistence.
+        $(':input[disabled]', form).attr(dataSelector('disabled', false), 'disabled');
+
         // Check any inputmask/formatter.js implementations from config.
         $.each(['inputmask|mask', 'formatter|pattern'], function(index, opts) {
             var opts = opts.split("|");
@@ -162,7 +165,7 @@
             // Set the formState method, which enables and disables
             // the form, as required.
             var formState = function(state) {
-                var formElements = $(':input', form);
+                var formElements = $(plate(':input:not([{0}])', dataSelector('disabled', false)), form);
                 switch (state) {
                     case 0:
                         formElements.prop('disabled', true);
