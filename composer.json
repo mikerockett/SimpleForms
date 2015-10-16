@@ -4,6 +4,7 @@
     },
     "require": {
         "nicmart/string-template": "^0.1.0",
-        "alexgarrett/violin": "^2.2"
+        "alexgarrett/violin": "^2.2",
+        "symfony/yaml": "^2.7"
     }
 }

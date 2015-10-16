@@ -10,7 +10,12 @@
  * Licence: MIT License - http://mit-license.org/
  */
 
-require_once __DIR__ . DIRECTORY_SEPARATOR . 'helpers.php';
+if (!defined('DS')) {
+    define('DS', DIRECTORY_SEPARATOR);
+}
+
+require_once __DIR__ . DS . 'helpers.php';
+require_once __DIR__ . DS . 'packages' . DS . 'autoload.php';
 
 /**
  * WireData/SimpleForms
@@ -155,20 +160,11 @@ class SimpleForms extends WireData implements Module
                 $this->session->remove('previousInput');
                 $this->response = $this->session->response;
                 $this->session->remove('response');
-                if (isset($this->response->error) && isset($this->response->errors)) {
-                    $count = count((array) $this->response->errors);
-                    $this->response->error = plate(
-                        $this->response->error,
-                        toWords($count),
-                        $count
-                    );
-                }
             }
             // Otherwise, store the referrer - we'll need this for redirection purposes.
             if (isset($_SERVER['HTTP_REFERER'])) {
                 $this->httpReferrer = $_SERVER['HTTP_REFERER'];
             }
-
         }
 
         // Route/Form-check
@@ -231,14 +227,34 @@ class SimpleForms extends WireData implements Module
         // Loop through each defined form and setup configuration.
         $this->forms = new stdClass;
         foreach ($forms as $form) {
-            $configFilename = truePath("{$this->formsPath}/{$form}/config.json");
-            if (!is_file($configFilename)) {
-                $this->respond(['error' => sprintf($this->_('[%s] has no config.json file.'), $form)], 500);
+
+            // Get the full path to the configuration file.
+            $configFile = function($format = 'json') use ($form) {
+                return truePath("{$this->formsPath}/{$form}/config.{$format}");
+            };
+
+            // Get config (JSON/YAML). JSON takes preference.
+            if (is_file($configFile())) {
+                $config = json_decode(file_get_contents($configFile()));
+            } else if (is_file($configFile('yaml'))) {
+                try {
+                    $config = json_decode(json_encode(Symfony\Component\Yaml\Yaml::parse(file_get_contents($configFile('yaml')))));
+                } catch (Symfony\Component\Yaml\Exception\ParseException $exception) {
+                    $this->respond([
+                        'error' => sprintf($this->_('YAML config for [%s] is not valid.'), $form),
+                        'parseException' => $exception->getMessage()
+                    ], 500);
+                }
+            } else {
+                $this->respond(['error' => sprintf($this->_('JSON/YAML config for [%s] is not present.'), $form)], 500);
             }
-            $config = json_decode(file_get_contents($configFilename));
+
+            // If null, throw an error an halt.
             if (is_null($config)) {
-                $this->respond(['error' => sprintf($this->_('JSON config for [%s] appears to be invalid. Please check syntax.'), $form)], 500);
+                $this->respond(['error' => sprintf($this->_('Config for [%s] appears to be invalid. Please check syntax.'), $form)], 500);
             }
+
+            // Otherwise, setup config for the class.
             $this->forms->{$form} = $config;
         }
 
@@ -332,7 +348,6 @@ class SimpleForms extends WireData implements Module
         }
 
         // Get and construct the validator
-        require_once truePath(__DIR__ . '/packages/autoload.php');
         $validator = new Violin\Violin();
 
         // Initialise arrays.
@@ -373,7 +388,7 @@ class SimpleForms extends WireData implements Module
                 if ($_FILES[$field]['size'] > 0) {
                     // Do WireUpload
                     $uid = $this->uid();
-                    $uploadPath = truePath("{$this->formsPath}/{$this->form->name}/uploads/{$uid}") . DIRECTORY_SEPARATOR;
+                    $uploadPath = truePath("{$this->formsPath}/{$this->form->name}/uploads/{$uid}") . DS;
                     $uploadUrl = "{$this->formsUrl}/{$this->form->name}/uploads/{$uid}/";
                     mkdir($uploadPath, 0755, true);
                     $fieldFile = new WireUpload($field);
@@ -459,9 +474,6 @@ class SimpleForms extends WireData implements Module
         // If validation fails, respond with the errors.
         if (!$validator->passes() || !empty($fileErrors)) {
 
-            // Set error message.
-            $errors['error'] = isset($this->form->messages->validation) ? $this->form->messages->validation : $this->_('Invalid input. Please check and try again.');
-
             // Initialise errors array
             $errors['errors'] = [];
 
@@ -474,6 +486,12 @@ class SimpleForms extends WireData implements Module
 
             // Merge with any form errors.
             $errors['errors'] = array_merge($errors['errors'], $fileErrors);
+
+            // Count errors.
+            $errorCount = count($errors['errors']);
+
+            // Set error message.
+            $errors['error'] = isset($this->form->messages->validation) ? plate($this->form->messages->validation, toWords($errorCount), $errorCount) : $this->_('Invalid input. Please check and try again.');
 
             // Remove file uploads for this request.
             if (isset($uploadPath) && is_dir($uploadPath)) {
