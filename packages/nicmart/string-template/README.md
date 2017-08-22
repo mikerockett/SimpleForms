@@ -1,4 +1,5 @@
-# StringTemplate [![Build Status](https://travis-ci.org/nicmart/StringTemplate.png?branch=master)](https://travis-ci.org/nicmart/StringTemplate) [![Coverage Status](https://coveralls.io/repos/nicmart/StringTemplate/badge.png?branch=master)](https://coveralls.io/r/nicmart/StringTemplate?branch=master) [![Scrutinizer Quality Score](https://scrutinizer-ci.com/g/nicmart/StringTemplate/badges/quality-score.png?s=e06818508807c109a8c9354a73fc1a5227426c09)](https://scrutinizer-ci.com/g/nicmart/StringTemplate/)
+# StringTemplate 
+[![Packagist](https://img.shields.io/packagist/dt/nicmart/string-template.svg)]() [![Packagist](https://img.shields.io/packagist/dm/nicmart/string-template.svg)]() [![Build Status](https://travis-ci.org/nicmart/StringTemplate.png?branch=master)](https://travis-ci.org/nicmart/StringTemplate) [![Coverage Status](https://coveralls.io/repos/nicmart/StringTemplate/badge.png?branch=master)](https://coveralls.io/r/nicmart/StringTemplate?branch=master) [![Scrutinizer Quality Score](https://scrutinizer-ci.com/g/nicmart/StringTemplate/badges/quality-score.png?s=e06818508807c109a8c9354a73fc1a5227426c09)](https://scrutinizer-ci.com/g/nicmart/StringTemplate/)
 
 StringTemplate is a very simple string template engine for php. 
 
@@ -13,7 +14,7 @@ I have often struggled against sprintf's lack of a named placeholders feature,
 so I have decided to write once and for all a simple component that allows you to render a template string in which
 placeholders are named.
 
-Furhtermore, its placeholders can be nested as much as you want (multidimensional arrays allowed).
+Furthermore, its placeholders can be nested as much as you want (multidimensional arrays allowed).
 
 ## Usage
 Simply create an instance of `StringTemplate\Engine`, and use its `render` method. 
@@ -81,13 +82,14 @@ Example:
  ```php
 $engine = new StringTemplate\SprintfEngine;
 
-//Returns I have 1.2 (1.230000E+0) apples
-$engine->render(
-    "I have {num%d.1} ({num%E.1}) {fruit}.",
-    [
-        'num' => 1.23,
-        'fruit' => 'apples'
-    ]);
+//Returns I have 1.2 (1.230000E+0) apples.
+    $engine->render(
+        "I have {num%.1f} ({num%.6E}) {fruit}.",
+        [
+            'num' => 1.23,
+            'fruit' => 'apples'
+        ]
+    )
 
 ```
 Keep in mind that power comes at a cost: `SprintfEngine` is 3 times slower than `Engine` 
@@ -98,7 +100,7 @@ Internally the engine iterates through the value array with the `NestedKeyIterat
 iterates through multi-dimensional arrays giving as key the imploded keys stack.
 
 It can be useful even if you don't need the Engine. Keep in mind that it is an `RecursiveIteratorIterator`,
-and so you have to pass  a `RecursiveIterator` to its constructor (or, better, a `StringTemplate\RecursiveArrayOnlyIterator` if you do not want to iterate through objects.
+and so you have to pass  a `RecursiveIterator` to its constructor (or, better, a `StringTemplate\RecursiveArrayOnlyIterator` if you do not want to iterate through objects).
 
 Example:
 ```php
@@ -177,7 +179,7 @@ Just create a composer.json file for your project:
 ```JSON
 {
     "require": {
-        "nicmart/string-template": "dev-master"
+        "nicmart/string-template": "~0.1"
     }
 }
 ```

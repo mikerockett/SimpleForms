@@ -20,4 +20,6 @@ Documentation will be posted after stability has been reached.
 - [ ] Simple form builder, based on JSON specifications (include support for Bootstrap, Foundation, and ProcessWire InputFields)
 - [ ] Template attachments - for logos or social buttons in emails
 
+---
+
 Module is released under the [MIT License](LICENSE.md).
