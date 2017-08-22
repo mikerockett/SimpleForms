@@ -1,12 +1,12 @@
 ## SimpleForms for ProcessWire
 
-This module is under heavy development, and **should not** be used in production environments, specifically due to the fact that it is not designed for production at this time - module updates will replace any forms you define.
+This module is under alpha development, and *should not* be used in production environments.
 
 **Current Alpha:** 0.8.0
 
-For more information, see this forum thread:
+For more information, see this forum thread: https://processwire.com/talk/topic/10929-developer-centric-form-processor
 
-**https://processwire.com/talk/topic/10929-developer-centric-form-processor**
+Documentation will be posted after stability has been reached.
 
 ### Todo
 
@@ -20,6 +20,4 @@ For more information, see this forum thread:
 - [ ] Simple form builder, based on JSON specifications (include support for Bootstrap, Foundation, and ProcessWire InputFields)
 - [ ] Template attachments - for logos or social buttons in emails
 
-### License
-
-Module is released under the [MIT License](http://mit-license.org/)
+Module is released under the [MIT License](LICENSE.md).
