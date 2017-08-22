@@ -6,8 +6,8 @@
  *
  * Module
  *
- * Copyright (c) 2015, Mike Rockett. All Rights Reserved.
- * Licence: MIT License - http://mit-license.org/
+ * @copyright 2015-2017, Mike Rockett. All Rights Reserved.
+ * @license   MIT License - http://mit-license.org/
  */
 
 if (!defined('DS')) {
@@ -35,6 +35,12 @@ class SimpleForms extends WireData implements Module
     protected $form;
 
     /**
+     * Form action prefix
+     * @var string
+     */
+    protected $formActionPrefix = 'module/simple-forms';
+
+    /**
      * All forms and their configs.
      * @var [type]
      */
@@ -59,34 +65,16 @@ class SimpleForms extends WireData implements Module
     protected $formsUrl = '';
 
     /**
-     * Module path
-     * @var string
-     */
-    protected $path = '';
-
-    /**
-     * Module URL
-     * @var string
-     */
-    protected $url = '';
-
-    /**
-     * Form action prefix
-     * @var string
-     */
-    protected $formActionPrefix = 'module/simple-forms';
-
-    /**
      * HTTP Referrer
      * @var string
      */
     protected $httpReferrer = '';
 
     /**
-     * Response (noAJAX)
+     * Module path
      * @var string
      */
-    protected $response = null;
+    protected $path = '';
 
     /**
      * Previous Input (noAJAX)
@@ -95,10 +83,55 @@ class SimpleForms extends WireData implements Module
     protected $previousInput = null;
 
     /**
+     * Response (noAJAX)
+     * @var string
+     */
+    protected $response = null;
+
+    /**
      * Form was successfully processed.
      * @var bool
      */
     protected $successful = false;
+
+    /**
+     * Module URL
+     * @var string
+     */
+    protected $url = '';
+
+    /**
+     * Install the module
+     */
+    public function ___install()
+    {
+        if (!is_dir($this->formsPath)) {
+            // Create the forms directory if it does not exist.
+            mkdir($this->formsPath, 0755, true);
+
+            // Copy built in form(s) to this directory.
+            $paths = (object) [
+                // site/modules/SimpleForms/forms/*
+                'default' => $this->config->paths->siteModules . __CLASS__ . "/default-{$this->formsDirectoryName}",
+                // site/assets/forms/*
+                'actual' => $this->formsPath,
+            ];
+            $copied = (_xcopy($paths->default, $paths->actual));
+            $this->message(
+                ($copied == true)
+                    ? $this->_('SimpleForms: Default form(s) copied successfully.')
+                    : $this->_('SimpleForms: Unable to copy ddefault form(s).')
+            );
+        }
+    }
+
+    /**
+     * Uninstall the module
+     */
+    public function ___uninstall()
+    {
+        $this->message($this->_('SimpleForms: You’ll need to manually remove the forms from your assets directory if you no longer require them.'));
+    }
 
     /**
      * Module constructor
@@ -106,12 +139,78 @@ class SimpleForms extends WireData implements Module
     public function __construct()
     {
         // Set the actual path to the forms directory.
-        $this->formsPath = truePath("{$this->config->paths->assets}{$this->formsDirectoryName}");
+        $this->formsPath = truePath($this->config->paths->assets . $this->formsDirectoryName);
 
         // Set the URL to the forms directory (for attachment links)
         $scheme = ($this->config->https) ? 'https' : 'http';
         $this->formsUrl = "{$scheme}://{$this->config->httpHost}{$this->config->urls->assets}{$this->formsDirectoryName}";
         $this->simpleFormsUrl = "{$scheme}://{$this->config->httpHost}{$this->config->urls->siteModules}" . __CLASS__;
+    }
+
+    /**
+     * Get the action URI for a form
+     * @param  string   $formName
+     * @return string
+     */
+    public function actionFor($formName)
+    {
+        return "{$this->config->urls->root}{$this->formActionPrefix}/{$formName}";
+    }
+
+    /**
+     * Output CSRF token data to form
+     * @return string
+     */
+    public function csrfToken()
+    {
+        return "<input type=\"hidden\" name=\"{$this->input->tokenName}\" value=\"{$this->input->tokenValue}\">" . PHP_EOL;
+    }
+
+    /**
+     * Get Field Error (noAJAX)
+     * @param  string   $field
+     * @return string
+     */
+    public function fieldError($field)
+    {
+        return ($this->hasError($field)) ? $this->response->errors->{$field} : '';
+    }
+
+    /**
+     * Get Form Error (noAJAX)
+     * @return string
+     */
+    public function formError()
+    {
+        return ($this->hasFormError()) ? $this->response->error : '';
+    }
+
+    /**
+     * Get Form Success Message (noAJAX)
+     * @return string
+     */
+    public function formSuccessMessage()
+    {
+        return (isset($this->response->success)) ? $this->response->success : $this->_('Form processed successfully.');
+    }
+
+    /**
+     * Has Field Error (noAJAX)
+     * @param  string $field
+     * @return bool
+     */
+    public function hasError($field)
+    {
+        return (isset($this->response->errors->{$field}));
+    }
+
+    /**
+     * Has Form Error (noAJAX)
+     * @return bool
+     */
+    public function hasFormError()
+    {
+        return (isset($this->response->error));
     }
 
     /**
@@ -131,72 +230,101 @@ class SimpleForms extends WireData implements Module
         // Proceed only if request is valid.
         if ($this->validRequest()) {
             $this->prepare();
-            $this->addHookBefore("ProcessPageView::pageNotFound", $this, "processForm");
+            $this->addHookBefore('ProcessPageView::pageNotFound', $this, 'processForm');
         }
     }
 
     /**
-     * Determine if a request is valid.
-     * Valid requests are AJAX POSTs to module/simple-forms/<existing-form>.
-     * @return bool
+     * Was the submission successful (noAJAX)
+     * @return string
      */
-    protected function validRequest()
+    public function isSuccessful()
     {
-        // AJAX-check
-        if (!$this->config->ajax) {
-            // If a response is saved in the session (that is, AJAX is not being used),
-            // then we're not processing a form. We can simply pass this data (manipulated
-            // the same way the front-end plugin does it) to $simpleForms along with the input,
-            // clear the variables from the session, and return false for this request.
-            //
-            // This is simply a way to flash data upon redirect as the functionality is
-            // not yet present in ProcessWire.
-            if ($this->session->response) {
-                // Pass input to $simpleForms for template processing.
-                if (isset($this->session->response->success)) {
-                    $this->successful = true;
-                }
-                $this->previousInput = $this->session->previousInput;
-                $this->session->remove('previousInput');
-                $this->response = $this->session->response;
-                $this->session->remove('response');
-            }
-            // Otherwise, store the referrer - we'll need this for redirection purposes.
-            if (isset($_SERVER['HTTP_REFERER'])) {
-                $this->httpReferrer = $_SERVER['HTTP_REFERER'];
-            }
-        }
-
-        // Route/Form-check
-        $routeExpression = '%' . preg_quote($this->formActionPrefix) . '/([a-z-_]+)/?%';
-        $route = trim((isset($_GET['it'])) ? $_GET['it'] : $_SERVER['REQUEST_URI'], '/');
-        if (!preg_match($routeExpression, $route)) {
-            return false;
-        } else {
-            $this->electedFormName = $this->sanitizer->varName(preg_replace($routeExpression, "\\1", $route));
-        }
-
-        // POST-check
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            return false;
-        }
-
-        return true;
+        return (bool) $this->successful;
     }
 
     /**
-     * Validate the form configuration object.
+     * Get Previous Input (noAJAX)
+     * @param  string   $field
+     * @return string
+     */
+    public function previousInput($field)
+    {
+        return (isset($this->previousInput->{$field})) ? $this->previousInput->{$field} : '';
+    }
+
+    /**
+     * Render a form based on its config.
+     * @param  string   $name The name of the form (as defined by its directory name, varName sanitized)
+     * @return string
+     */
+    public function render($name)
+    {
+        // Coming soon...
+    }
+
+    /**
+     * Render Dormatted Field Error (noAJAX)
+     * @param  string   $field
+     * @return string
+     */
+    public function renderFieldError($field)
+    {
+        if ($this->hasError($field)) {
+            $error = $this->response->errors->{$field};
+            return "<div data-sf-fielderror=\"$field\">$error</div>";
+        }
+    }
+
+    /**
+     * Render Dormatted Form Error (noAJAX)
+     * @param  string   $field
+     * @return string
+     */
+    public function renderFormError()
+    {
+        if ($this->hasFormError()) {
+            return "<div data-sf-formerror>{$this->response->error}</div>";
+        }
+    }
+
+    /**
+     * Render Formatted Form Success Message (noAJAX)
+     * @return string
+     */
+    public function renderFormSuccessMessage()
+    {
+        return "<div data-sf-success>{$this->formSuccessMessage()}</div>";
+    }
+
+    /**
+     * Get script file path.
+     * @param  string  $name      defaults to 'simpleforms' for main plugin
+     * @param  boolean $jquery    define if this file has 'jquery.' as a prefix
+     * @param  boolean $min       define if this file is minified
+     * @param  boolean $cacheBust cache buster (adds unix timestamp to filename)
+     * @return string  resulting file name
+     */
+    public function script($name = 'simpleforms', $jquery = true, $min = true, $cacheBust = false)
+    {
+        $jquery = ($jquery === true) ? 'jquery.' : '';
+        $now = ($cacheBust) ? '?' . sha1(time()) : '';
+        $min = ($min) ? '.min' : '';
+        return "{$this->simpleFormsUrl}/assets/{$jquery}{$name}{$min}.js{$now}";
+    }
+
+    /**
+     * Check for CSRF Token data
+     * WireCSRFException "Request appears to be forged."
      * @return void
      */
-    protected function validateConfig()
+    protected function checkCSRF()
     {
-        return (
-            isset($this->form->title) &&
-            isset($this->form->fields) &&
-            count($this->form->fields) > 0 &&
-            isset($this->form->emails) &&
-            count($this->form->emails) > 0
-        );
+        try {
+            $this->session->CSRF->validate();
+        } catch (WireCSRFException $e) {
+            $this->respond(['error' => $this->_('Request appears to be forged.')], 500);
+        }
     }
 
     /**
@@ -225,11 +353,10 @@ class SimpleForms extends WireData implements Module
         }
 
         // Loop through each defined form and setup configuration.
-        $this->forms = new stdClass;
+        $this->forms = new stdClass();
         foreach ($forms as $form) {
-
             // Get the full path to the configuration file.
-            $configFile = function($format = 'json') use ($form) {
+            $configFile = function ($format = 'json') use ($form) {
                 return truePath("{$this->formsPath}/{$form}/config.{$format}");
             };
 
@@ -242,7 +369,7 @@ class SimpleForms extends WireData implements Module
                 } catch (Symfony\Component\Yaml\Exception\ParseException $exception) {
                     $this->respond([
                         'error' => sprintf($this->_('YAML config for [%s] is not valid.'), $form),
-                        'parseException' => $exception->getMessage()
+                        'parseException' => $exception->getMessage(),
                     ], 500);
                 }
             } else {
@@ -250,7 +377,7 @@ class SimpleForms extends WireData implements Module
             }
 
             // If null, throw an error an halt.
-            if (is_null($config)) {
+            if (null === $config) {
                 $this->respond(['error' => sprintf($this->_('Config for [%s] appears to be invalid. Please check syntax.'), $form)], 500);
             }
 
@@ -282,58 +409,6 @@ class SimpleForms extends WireData implements Module
     }
 
     /**
-     * Send a response.
-     * @return void
-     */
-    protected function respond($data, $responseCode = 200)
-    {
-        // If using AJAX, send a JSON response. Otherwise, flash the response to
-        // the session for template output.
-        if ($this->config->ajax) {
-            http_response_code($responseCode);
-            header('Content-Type: application/json');
-            header('Cache-Control: no-cache');
-            print json_encode($data);
-            exit;
-        } else {
-            http_response_code($responseCode);
-            $this->session->response = json_decode(json_encode($data)); // Quick array>object conversion
-            $previousInput = new stdClass;
-            foreach ($this->input->post as $name => $value) {
-                if (stripos($name, 'TOKEN') !== 0) {
-                    $previousInput->{$name} = $value;
-                }
-            }
-            $this->session->previousInput = $previousInput;
-            $this->session->redirect($this->httpReferrer, false);
-        }
-    }
-
-    /**
-     * Create a unique identifier (for file uploads)
-     * @return string
-     */
-    protected function uid()
-    {
-        mt_srand((double) microtime() * 10000);
-        return strtolower(md5(uniqid(rand(), true)));
-    }
-
-    /**
-     * Check for CSRF Token data
-     * WireCSRFException "Request appears to be forged."
-     * @return void
-     */
-    protected function checkCSRF()
-    {
-        try {
-            $this->session->CSRF->validate();
-        } catch (WireCSRFException $e) {
-            $this->respond(['error' => $this->_('Request appears to be forged.')], 500);
-        }
-    }
-
-    /**
      * Process the applicable form.
      * @return string JSON-encoded
      */
@@ -359,7 +434,6 @@ class SimpleForms extends WireData implements Module
         // Before preparing basic user input, upload and validate files.
         if (isset($this->form->files)) {
             foreach ($this->form->files as $field => $fieldData) {
-
                 // Check for the existence of required config properties.
                 foreach (['validExtensions', 'maxSize'] as $requiredProperty) {
                     if (!isset($fieldData->{$requiredProperty}) || empty($fieldData->{$requiredProperty})) {
@@ -425,7 +499,6 @@ class SimpleForms extends WireData implements Module
 
         // Prepare validations and messages for Violin
         foreach ($this->form->fields as $field => $fieldData) {
-
             // Check for the existence of rules.
             if (!isset($fieldData->rules) || empty($fieldData->rules)) {
                 $this->respond(['error', sprintf($this->_('Field [%s] has no rules.'), $field)], 500);
@@ -473,7 +546,6 @@ class SimpleForms extends WireData implements Module
 
         // If validation fails, respond with the errors.
         if (!$validator->passes() || !empty($fileErrors)) {
-
             // Initialise errors array
             $errors['errors'] = [];
 
@@ -504,7 +576,7 @@ class SimpleForms extends WireData implements Module
 
         // If no emails have been defined, throw an error.
         if (!isset($this->form->emails)) {
-            $this->respond(['error' => $this->_("You haven't set up the emails to send for this form.")], 500);
+            $this->respond(['error' => $this->_('You haven’t set up the emails to send for this form.')], 500);
         }
 
         // Set up the template engine
@@ -532,7 +604,6 @@ class SimpleForms extends WireData implements Module
 
         // Start the email loop.
         foreach ($this->form->emails as $emailKey => $email) {
-
             // Throw an error if a template hasn't been defined for the email
             if (!isset($email->template)) {
                 $this->respond(['error' => sprintf($this->_('[%s] needs a template.'), $emailKey)], 500);
@@ -556,7 +627,7 @@ class SimpleForms extends WireData implements Module
             }
 
             // Start wireMail.
-            $mailer = $this->sanitizer->varName($emailKey) . "Mailer";
+            $mailer = $this->sanitizer->varName($emailKey) . 'Mailer';
             $$mailer = wireMail();
 
             // Check for to/from headers.
@@ -584,14 +655,13 @@ class SimpleForms extends WireData implements Module
 
             // If an HTML template is specified and exists:
             if (isset($templates->html) && is_file($templates->html)) {
-
                 // If any multiline fields have been defined, send them to the data array.
                 // Note: should an HTML template not be present, the field should be called as normal:
                 //       {input.field} instead of {input.field.html} and {input.field.plain}
                 foreach ($this->form->fields as $field => $fieldData) {
                     if (isset($fieldData->textField)) {
                         $plain = $data['input'][$field];
-                        $html = str_replace(array("\r\n", "\r", "\n"), "<br>", $plain);
+                        $html = str_replace(["\r\n", "\r", "\n"], '<br>', $plain);
                         $data['input'][$field] = [
                             'plain' => $plain,
                             'html' => $html,
@@ -604,11 +674,11 @@ class SimpleForms extends WireData implements Module
                 $stylesheets = [];
                 /**
                  * Minify CSS.
-                 * @param  string $buffer
+                 * @param  string   $buffer
                  * @return string
                  */
                 $minify = function ($buffer) {
-                    $buffer = preg_replace("%((?:/\*(?:[^*]|(?:\*+[^*/]))*\*+/)|(?:/.*))%", "", $buffer);
+                    $buffer = preg_replace("%((?:/\*(?:[^*]|(?:\*+[^*/]))*\*+/)|(?:/.*))%", '', $buffer);
                     $buffer = preg_replace('%\s+%', ' ', $buffer);
                     $buffer = str_replace(["\r\n", "\r", "\t", "\n"], '', $buffer);
                     $buffer = str_replace(['; ', ': ', ' {', '{ ', ', ', '} ', ';}'], [';', ':', '{', '{', ',', '}', '}'], $buffer);
@@ -618,7 +688,7 @@ class SimpleForms extends WireData implements Module
                     if ($info->isFile() && !$info->isDot()) {
                         if ($info->getExtension() === 'css') {
                             $stylesheets[pathinfo($info->getFilename(), PATHINFO_FILENAME)] =
-                            '<style>' . $minify(file_get_contents($info->getPathname())) . '</style>';
+                                '<style>' . $minify(file_get_contents($info->getPathname())) . '</style>';
                         }
                     }
                 }
@@ -658,178 +728,104 @@ class SimpleForms extends WireData implements Module
     }
 
     /**
-     * Get script file path.
-     * @param  string  $name      defaults to 'simpleforms' for main plugin
-     * @param  boolean $jquery    define if this file has 'jquery.' as a prefix
-     * @param  boolean $min       define if this file is minified
-     * @param  boolean $cacheBust cache buster (adds unix timestamp to filename)
-     * @return string             resulting file name
+     * Send a response.
+     * @return void
      */
-    public function script($name = 'simpleforms', $jquery = true, $min = true, $cacheBust = false)
+    protected function respond($data, $responseCode = 200)
     {
-        $jquery = ($jquery === true) ? 'jquery.' : '';
-        $now = ($cacheBust) ? '?' . time() : '';
-        $min = ($min) ? '.min' : '';
-        return "{$this->simpleFormsUrl}/assets/{$jquery}{$name}{$min}.js{$now}";
+        // If using AJAX, send a JSON response. Otherwise, flash the response to
+        // the session for template output.
+        if ($this->config->ajax) {
+            http_response_code($responseCode);
+            header('Content-Type: application/json');
+            header('Cache-Control: no-cache');
+            print json_encode($data);
+            exit;
+        } else {
+            http_response_code($responseCode);
+            $this->session->response = json_decode(json_encode($data)); // Quick array>object conversion
+            $previousInput = new stdClass();
+            foreach ($this->input->post as $name => $value) {
+                if (stripos($name, 'TOKEN') !== 0) {
+                    $previousInput->{$name} = $value;
+                }
+            }
+            $this->session->previousInput = $previousInput;
+            $this->session->redirect($this->httpReferrer, false);
+        }
     }
 
     /**
-     * Get the action URI for a form
-     * @param  string $formName
+     * Create a unique identifier (for file uploads)
      * @return string
      */
-    public function actionFor($formName)
+    protected function uid()
     {
-        return "{$this->config->urls->root}{$this->formActionPrefix}/{$formName}";
+        mt_srand((double) microtime() * 10000);
+        return strtolower(md5(uniqid(rand(), true)));
     }
 
     /**
-     * Output CSRF token data to form
-     * @return [type] [description]
-     */
-    public function csrfToken()
-    {
-        return '<input type="hidden" name="' . $this->input->tokenName . '" value="' . $this->input->tokenValue . '">' . PHP_EOL;
-    }
-
-    /**
-     * Was the submission successful (noAJAX)
-     * @return string
-     */
-    public function isSuccessful()
-    {
-        return (bool) $this->successful;
-    }
-
-    /**
-     * Get Form Success Message (noAJAX)
-     * @return string
-     */
-    public function formSuccessMessage()
-    {
-        return (isset($this->response->success)) ? $this->response->success : $this->_('Form processed successfully.');
-    }
-
-    /**
-     * Render Formatted Form Success Message (noAJAX)
-     * @return string
-     */
-    public function renderFormSuccessMessage()
-    {
-        return '<div data-sf-success>' . $this->formSuccessMessage() . '</div>';
-    }
-
-    /**
-     * Has Form Error (noAJAX)
+     * Determine if a request is valid.
+     * Valid requests are AJAX POSTs to module/simple-forms/<existing-form>.
      * @return bool
      */
-    public function hasFormError()
+    protected function validRequest()
     {
-        return (isset($this->response->error));
-    }
-
-    /**
-     * Get Form Error (noAJAX)
-     * @return string
-     */
-    public function formError()
-    {
-        return ($this->hasFormError()) ? $this->response->error : '';
-    }
-
-    /**
-     * Render Dormatted Form Error (noAJAX)
-     * @param  string $field
-     * @return string
-     */
-    public function renderFormError()
-    {
-        if ($this->hasFormError()) {
-            return '<div data-sf-formerror>' . $this->response->error . '</div>';
+        // AJAX-check
+        if (!$this->config->ajax) {
+            // If a response is saved in the session (that is, AJAX is not being used),
+            // then we're not processing a form. We can simply pass this data (manipulated
+            // the same way the front-end plugin does it) to $simpleForms along with the input,
+            // clear the variables from the session, and return false for this request.
+            //
+            // This is simply a way to flash data upon redirect as the functionality is
+            // not yet present in ProcessWire.
+            if ($this->session->response) {
+                // Pass input to $simpleForms for template processing.
+                if (isset($this->session->response->success)) {
+                    $this->successful = true;
+                }
+                $this->previousInput = $this->session->previousInput;
+                $this->session->remove('previousInput');
+                $this->response = $this->session->response;
+                $this->session->remove('response');
+            }
+            // Otherwise, store the referrer - we'll need this for redirection purposes.
+            if (isset($_SERVER['HTTP_REFERER'])) {
+                $this->httpReferrer = $_SERVER['HTTP_REFERER'];
+            }
         }
-    }
 
-    /**
-     * Has Field Error (noAJAX)
-     * @param  string $field
-     * @return bool
-     */
-    public function hasError($field)
-    {
-        return (isset($this->response->errors->{$field}));
-    }
-
-    /**
-     * Get Field Error (noAJAX)
-     * @param  string $field
-     * @return string
-     */
-    public function fieldError($field)
-    {
-        return ($this->hasError($field)) ? $this->response->errors->{$field} : '';
-    }
-
-    /**
-     * Render Dormatted Field Error (noAJAX)
-     * @param  string $field
-     * @return string
-     */
-    public function renderFieldError($field)
-    {
-        if ($this->hasError($field)) {
-            return '<div data-sf-fielderror="' . $field . '">' . $this->response->errors->{$field} . '</div>';
+        // Route/Form-check
+        $routeExpression = '%' . preg_quote($this->formActionPrefix) . '/([a-z-_]+)/?%';
+        $route = trim((isset($_GET['it'])) ? $_GET['it'] : $_SERVER['REQUEST_URI'], '/');
+        if (!preg_match($routeExpression, $route)) {
+            return false;
+        } else {
+            $this->electedFormName = $this->sanitizer->varName(preg_replace($routeExpression, '\\1', $route));
         }
-    }
 
-    /**
-     * Get Previous Input (noAJAX)
-     * @param  string $field
-     * @return string
-     */
-    public function previousInput($field)
-    {
-        return (isset($this->previousInput->{$field})) ? $this->previousInput->{$field} : '';
-    }
-
-    /**
-     * Render a form based on its config.
-     * @param  string $name The name of the form (as defined by its directory name, varName sanitized)
-     * @return string
-     */
-    public function render($name)
-    {
-        // Coming soon...
-    }
-
-    /**
-     * Install the module
-     */
-    public function ___install()
-    {
-        if (!is_dir($this->formsPath)) {
-            // Create the forms directory if it does not exist.
-            mkdir($this->formsPath, 0755, true);
-
-            // Copy built in form(s) to this directory.
-            $paths = (object) [
-                // site/modules/SimpleForms/forms/*
-                'default' => $this->config->paths->siteModules . __CLASS__ . "/default-{$this->formsDirectoryName}",
-                // site/assets/forms/*
-                'actual' => $this->formsPath,
-            ];
-            $copied = (_xcopy($paths->default, $paths->actual));
-            $this->message(
-                ($copied == true)
-                    ? $this->_('SimpleForms: Default form(s) copied successfully.')
-                    : $this->_('SimpleForms: Unable to copy ddefault form(s).')
-            );
+        // POST-check
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return false;
         }
+
+        return true;
     }
 
     /**
-     * Uninstall the module
+     * Validate the form configuration object.
+     * @return void
      */
-    public function ___uninstall()
+    protected function validateConfig()
     {
+        return (
+            isset($this->form->title) &&
+            isset($this->form->fields) &&
+            count($this->form->fields) > 0 &&
+            isset($this->form->emails) &&
+            count($this->form->emails) > 0
+        );
     }
 }

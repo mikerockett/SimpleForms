@@ -1,11 +1,11 @@
-/*--
+/**
  * SimpleForms for ProcessWire
  * A simple form processor. Uses AJAX, configurable with JSON. Front-end is up to you.
  *
  * Front-end jQuery plugin
  *
- * Copyright (c) 2015, Mike Rockett. All Rights Reserved.
- * Licence: MIT License - http://mit-license.org/
+ * @copyright 2015-2017, Mike Rockett. All Rights Reserved.
+ * @license MIT License - http://mit-license.org/
  */
 
 (function($, window) {
@@ -165,15 +165,8 @@
             // Set the formState method, which enables and disables
             // the form, as required.
             var formState = function(state) {
-                var formElements = $(plate(':input:not([{0}])', dataSelector('disabled', false)), form);
-                switch (state) {
-                    case 0:
-                        formElements.prop('disabled', true);
-                        break;
-                    case 1:
-                        formElements.prop('disabled', false);
-                        break;
-                }
+                var formElements = $(plate(':input:not([{0}])',dataSelector('disabled', false)), form);
+                formElements.prop('disabled', !state);
             }
 
             // Set before and after methods
