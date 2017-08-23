@@ -324,7 +324,9 @@
      * Even better.
      */
     window.simpleForms = function(configuration) {
-        $(allSimpleForms()).prepareSimpleForms(configuration);
+        $(allSimpleForms()).each(function(index, form) {
+            $(form).prepareSimpleForms(configuration);
+        });
     }
 
 })(jQuery, window);
