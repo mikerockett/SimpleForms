@@ -1,6 +1,6 @@
 ## SimpleForms for ProcessWire
 
-![Shield: Status = Alpha](https://img.shields.io/badge/status-alpha-orange.svg) ![Shield: Version = 0.8.0](https://img.shields.io/badge/version-0.8.0-blue.svg) ![Shield: License = MIT](https://img.shields.io/github/license/mikerockett/simpleforms.svg)
+![Shield: Status = Alpha](https://img.shields.io/badge/status-alpha-orange.svg) ![Shield: Version = 0.8.1](https://img.shields.io/badge/version-0.8.1-blue.svg) ![Shield: License = MIT](https://img.shields.io/github/license/mikerockett/simpleforms.svg)
 
 > **Note:** This module is under alpha development, and *should not* be used in production environments.
 
