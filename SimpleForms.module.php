@@ -630,7 +630,7 @@ class SimpleForms extends WireData implements Module
             $mailer = $this->sanitizer->varName($emailKey) . 'Mailer';
             $$mailer = wireMail();
 
-            // Check for to/from headers.
+            // Check for to/from/reply-to headers.
             foreach (['to', 'from'] as $header) {
                 // If it hasn't been set, throw an error.
                 if (!isset($email->{$header})) {
@@ -652,6 +652,11 @@ class SimpleForms extends WireData implements Module
 
             // Prepare basic wireMail headers.
             $$mailer->from($email->from)->to($email->to)->subject($email->subject);
+
+            // Add reply-to header if made available
+            if (isset($email->replyTo)) {
+                $$mailer->header('reply-to', $templateEngine->render($email->replyTo, ['input' => $formInput]));
+            }
 
             // If an HTML template is specified and exists:
             if (isset($templates->html) && is_file($templates->html)) {
